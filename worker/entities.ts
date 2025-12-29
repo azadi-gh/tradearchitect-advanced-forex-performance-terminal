@@ -1,41 +1,49 @@
-/**
- * Minimal real-world demo: One Durable Object instance per entity (User, ChatBoard), with Indexes for listing.
- */
-import { IndexedEntity } from "./core-utils";
-import type { User, Chat, ChatMessage } from "@shared/types";
-import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS } from "@shared/mock-data";
-
-// USER ENTITY: one DO instance per user
-export class UserEntity extends IndexedEntity<User> {
-  static readonly entityName = "user";
-  static readonly indexName = "users";
-  static readonly initialState: User = { id: "", name: "" };
-  static seedData = MOCK_USERS;
+import { IndexedEntity, Entity } from "./core-utils";
+import type { Trade, Strategy, FinancialSnapshot } from "@shared/types";
+export class StrategyEntity extends IndexedEntity<Strategy> {
+  static readonly entityName = "strategy";
+  static readonly indexName = "strategies";
+  static readonly initialState: Strategy = {
+    id: "",
+    name: "",
+    description: "",
+    createdAt: 0
+  };
 }
-
-// CHAT BOARD ENTITY: one DO instance per chat board, stores its own messages
-export type ChatBoardState = Chat & { messages: ChatMessage[] };
-
-const SEED_CHAT_BOARDS: ChatBoardState[] = MOCK_CHATS.map(c => ({
-  ...c,
-  messages: MOCK_CHAT_MESSAGES.filter(m => m.chatId === c.id),
-}));
-
-export class ChatBoardEntity extends IndexedEntity<ChatBoardState> {
-  static readonly entityName = "chat";
-  static readonly indexName = "chats";
-  static readonly initialState: ChatBoardState = { id: "", title: "", messages: [] };
-  static seedData = SEED_CHAT_BOARDS;
-
-  async listMessages(): Promise<ChatMessage[]> {
-    const { messages } = await this.getState();
-    return messages;
+export interface JournalState {
+  trades: Trade[];
+  balance: number;
+}
+export class JournalEntity extends Entity<JournalState> {
+  static readonly entityName = "journal";
+  static readonly initialState: JournalState = {
+    trades: [],
+    balance: 10000 // Default starting balance
+  };
+  async addTrade(trade: Trade): Promise<Trade> {
+    return this.mutate(s => {
+      const trades = [...s.trades, trade];
+      return { ...s, trades };
+    }).then(() => trade);
   }
-
-  async sendMessage(userId: string, text: string): Promise<ChatMessage> {
-    const msg: ChatMessage = { id: crypto.randomUUID(), chatId: this.id, userId, text, ts: Date.now() };
-    await this.mutate(s => ({ ...s, messages: [...s.messages, msg] }));
-    return msg;
+  async getStats(): Promise<FinancialSnapshot> {
+    const { trades, balance } = await this.getState();
+    const closedTrades = trades.filter(t => t.status === 'CLOSED');
+    const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0);
+    const totalPnL = closedTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
+    const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
+    const grossProfit = winningTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
+    const grossLoss = Math.abs(closedTrades.filter(t => (t.pnl || 0) < 0).reduce((acc, t) => acc + (t.pnl || 0), 0));
+    const profitFactor = grossLoss === 0 ? grossProfit : grossProfit / grossLoss;
+    return {
+      equity: balance + totalPnL,
+      balance,
+      winRate,
+      profitFactor,
+      expectancy: closedTrades.length > 0 ? totalPnL / closedTrades.length : 0,
+      totalTrades: trades.length,
+      maxDrawdown: 0, // Simplified for Phase 1
+      recentTrades: trades.slice(-5).reverse()
+    };
   }
 }
-

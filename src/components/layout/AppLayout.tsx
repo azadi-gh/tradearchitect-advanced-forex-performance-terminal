@@ -1,31 +1,36 @@
-/*
-Wraps children in a sidebar layout. Don't use this if you don't need a sidebar
-*/
 import React from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-
+import { useDirection } from "@/lib/store";
+import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ThemeToggle";
 type AppLayoutProps = {
   children: React.ReactNode;
   container?: boolean;
   className?: string;
   contentClassName?: string;
 };
-
 export function AppLayout({ children, container = false, className, contentClassName }: AppLayoutProps): JSX.Element {
+  const direction = useDirection();
   return (
-    <SidebarProvider defaultOpen={false}>
-      <AppSidebar />
-      <SidebarInset className={className}>
-        <div className="absolute left-2 top-2 z-20">
-          <SidebarTrigger />
-        </div>
-        {container ? (
-          <div className={"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12" + (contentClassName ? ` ${contentClassName}` : "")}>{children}</div>
-        ) : (
-          children
-        )}
-      </SidebarInset>
-    </SidebarProvider>
+    <div dir={direction} className="min-h-screen bg-background">
+      <SidebarProvider defaultOpen={true}>
+        <AppSidebar />
+        <SidebarInset className={cn("relative", className)}>
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur">
+            <SidebarTrigger />
+            <div className="flex-1" />
+            <ThemeToggle className="static" />
+          </header>
+          {container ? (
+            <main className={cn("max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8", contentClassName)}>
+              {children}
+            </main>
+          ) : (
+            <main className={contentClassName}>{children}</main>
+          )}
+        </SidebarInset>
+      </SidebarProvider>
+    </div>
   );
 }
