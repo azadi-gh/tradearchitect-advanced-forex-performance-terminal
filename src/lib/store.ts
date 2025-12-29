@@ -1,3 +1,4 @@
+import React from 'react';
 import { create } from 'zustand';
 interface AppState {
   language: 'en' | 'fa';
@@ -20,8 +21,11 @@ export const useAppStore = create<AppState>((set) => ({
     };
   }),
 }));
-// Selectors follow ZUSTAND ZERO-TOLERANCE RULE
-// Note: We use functions that call the store to ensure they are used as hooks correctly
+/**
+ * ZUSTAND ZERO-TOLERANCE SELECTORS
+ * Each hook returns a primitive value to prevent re-render loops and ensure terminal stability.
+ */
 export const useLanguage = () => useAppStore((s) => s.language);
 export const useDirection = () => useAppStore((s) => s.direction);
 export const useToggleLanguage = () => useAppStore((s) => s.toggleLanguage);
+export const useSetLanguage = () => useAppStore((s) => s.setLanguage);

@@ -13,26 +13,27 @@ type AppLayoutProps = {
   contentClassName?: string;
 };
 export function AppLayout({ children, container = false, className, contentClassName }: AppLayoutProps): JSX.Element {
+  // Call primitive selectors strictly
   const direction = useDirection();
   const language = useLanguage();
   const toggleLanguage = useToggleLanguage();
   return (
-    <div dir={direction} className="min-h-screen bg-background">
+    <div dir={direction || 'ltr'} className="min-h-screen bg-background">
       <SidebarProvider defaultOpen={true}>
         <AppSidebar />
-        <SidebarInset className={cn("relative flex flex-col h-screen", className)}>
+        <SidebarInset className={cn("relative flex flex-col h-screen overflow-hidden", className)}>
           <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur shrink-0">
             <SidebarTrigger />
             <div className="flex-1" />
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={toggleLanguage}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleLanguage?.()}
                 className="gap-2 text-xs font-bold uppercase tracking-tight"
               >
                 <Languages className="h-4 w-4" />
-                {language === 'en' ? 'FA' : 'EN'}
+                {language === 'fa' ? 'EN' : 'FA'}
               </Button>
               <ThemeToggle className="static" />
             </div>

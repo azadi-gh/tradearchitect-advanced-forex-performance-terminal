@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,13 +14,13 @@ const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.preprocess((val) => Number(val), z.number().positive()),
-  exitPrice: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
-  lots: z.preprocess((val) => Number(val), z.number().positive().max(100, "Maximum 100 lots allowed")),
-  riskPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)),
-  pnl: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
-  strategyId: z.string().optional(),
-  notes: z.string().optional(),
+  entryPrice: z.coerce.number().positive("Entry price must be positive"),
+  exitPrice: z.coerce.number().optional().nullable(),
+  lots: z.coerce.number().positive().max(100, "Maximum 100 lots allowed"),
+  riskPercent: z.coerce.number().min(0).max(100),
+  pnl: z.coerce.number().optional().nullable(),
+  strategyId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 type TradeFormData = z.infer<typeof tradeSchema>;
 interface TradeFormProps {
@@ -40,25 +40,38 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
       type: initialData?.type || 'LONG',
       status: initialData?.status || 'OPEN',
       entryPrice: initialData?.entryPrice || 0,
-      exitPrice: initialData?.exitPrice,
+      exitPrice: initialData?.exitPrice ?? null,
       lots: initialData?.lots || 0.1,
       riskPercent: initialData?.riskPercent || 1,
-      pnl: initialData?.pnl,
-      strategyId: initialData?.strategyId,
+      pnl: initialData?.pnl ?? null,
+      strategyId: initialData?.strategyId ?? '',
       notes: initialData?.notes || '',
     },
   });
   const status = watch('status');
+  const entryPrice = watch('entryPrice');
+  const exitPrice = watch('exitPrice');
+  const lots = watch('lots');
+  const type = watch('type');
+  // Auto-calculate PnL when conditions are met
+  useEffect(() => {
+    if (status === 'CLOSED' && entryPrice && exitPrice && lots) {
+      const diff = type === 'LONG' ? exitPrice - entryPrice : entryPrice - exitPrice;
+      const pips = diff / 0.0001; // Approximate major pair pip scale
+      const calculatedPnl = pips * 10 * lots;
+      setValue('pnl', Number(calculatedPnl.toFixed(2)));
+    }
+  }, [status, entryPrice, exitPrice, lots, type, setValue]);
   return (
     <form onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Symbol</Label>
-          <Input {...register('symbol')} placeholder="EURUSD" />
+          <Label className="text-xs font-bold uppercase">Symbol</Label>
+          <Input {...register('symbol')} placeholder="EURUSD" className="font-mono" />
           {errors.symbol && <p className="text-xs text-destructive">{errors.symbol.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Type</Label>
+          <Label className="text-xs font-bold uppercase">Type</Label>
           <Select onValueChange={(v) => setValue('type', v as any)} defaultValue={watch('type')}>
             <SelectTrigger>
               <SelectValue />
@@ -70,7 +83,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Status</Label>
+          <Label className="text-xs font-bold uppercase">Status</Label>
           <Select onValueChange={(v) => setValue('status', v as any)} defaultValue={watch('status')}>
             <SelectTrigger>
               <SelectValue />
@@ -83,8 +96,8 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Strategy</Label>
-          <Select onValueChange={(v) => setValue('strategyId', v)} defaultValue={watch('strategyId')}>
+          <Label className="text-xs font-bold uppercase">Strategy</Label>
+          <Select onValueChange={(v) => setValue('strategyId', v)} defaultValue={watch('strategyId') || undefined}>
             <SelectTrigger>
               <SelectValue placeholder="Select Strategy" />
             </SelectTrigger>
@@ -96,38 +109,37 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Lots</Label>
-          <Input type="number" step="0.01" {...register('lots')} />
+          <Label className="text-xs font-bold uppercase">Lots</Label>
+          <Input type="number" step="0.01" {...register('lots')} className="font-mono" />
           {errors.lots && <p className="text-xs text-destructive">{errors.lots.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Risk %</Label>
-          <Input type="number" step="0.1" {...register('riskPercent')} />
+          <Label className="text-xs font-bold uppercase">Risk %</Label>
+          <Input type="number" step="0.1" {...register('riskPercent')} className="font-mono" />
         </div>
         <div className="space-y-2">
-          <Label>Entry Price</Label>
-          <Input type="number" step="0.00001" {...register('entryPrice')} />
-          {errors.entryPrice && <p className="text-xs text-destructive">{errors.entryPrice.message}</p>}
+          <Label className="text-xs font-bold uppercase">Entry Price</Label>
+          <Input type="number" step="0.00001" {...register('entryPrice')} className="font-mono" />
         </div>
         {status === 'CLOSED' && (
           <>
             <div className="space-y-2">
-              <Label>Exit Price</Label>
-              <Input type="number" step="0.00001" {...register('exitPrice')} />
+              <Label className="text-xs font-bold uppercase">Exit Price</Label>
+              <Input type="number" step="0.00001" {...register('exitPrice')} className="font-mono" />
             </div>
             <div className="space-y-2">
-              <Label>Profit/Loss ($)</Label>
-              <Input type="number" step="0.01" {...register('pnl')} />
+              <Label className="text-xs font-bold uppercase text-emerald-500">Auto PnL ($)</Label>
+              <Input type="number" step="0.01" {...register('pnl')} className="font-mono bg-emerald-50/10 border-emerald-500/20" />
             </div>
           </>
         )}
       </div>
       <div className="space-y-2">
-        <Label>Notes</Label>
-        <Textarea {...register('notes')} placeholder="Trade rationale..." />
+        <Label className="text-xs font-bold uppercase">Notes</Label>
+        <Textarea {...register('notes')} placeholder="Trade rationale..." className="resize-none" />
       </div>
-      <Button type="submit" className="w-full" disabled={isPending}>
-        {isPending ? "Processing..." : initialData?.id ? "Update Trade" : "Log Trade"}
+      <Button type="submit" className="w-full font-bold uppercase tracking-widest h-12" disabled={isPending}>
+        {isPending ? "Syncing..." : initialData?.id ? "Update Terminal" : "Commit Trade"}
       </Button>
     </form>
   );
