@@ -31,7 +31,7 @@ const tradeSchema = z.object({
 type TradeFormData = z.infer<typeof tradeSchema>;
 interface TradeFormProps {
   initialData?: Partial<Trade>;
-  onSubmit: (data: TradeFormData) => void;
+  onSubmit: SubmitHandler<TradeFormData>;
   isPending?: boolean;
 }
 export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) {
@@ -40,12 +40,12 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
     queryKey: ['strategies'],
     queryFn: () => api<Strategy[]>('/api/strategies'),
   });
-  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<TradeFormData>({
+  const { register, handleSubmit, setValue, control } = useForm<TradeFormData>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
       symbol: initialData?.symbol || searchParams.get('symbol') || '',
-      type: (initialData?.type as any) || 'LONG',
-      status: (initialData?.status as any) || 'OPEN',
+      type: (initialData?.type as TradeFormData['type']) || 'LONG',
+      status: (initialData?.status as TradeFormData['status']) || 'OPEN',
       entryPrice: initialData?.entryPrice || 0,
       exitPrice: initialData?.exitPrice,
       lots: initialData?.lots || 0.1,
@@ -66,10 +66,10 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
   const checklistComplete = useWatch({ control, name: 'checklistComplete' }) || [];
   const selectedStrategy = useMemo(() => strategies?.find(s => s.id === strategyId), [strategies, strategyId]);
   useEffect(() => {
-    if (selectedStrategy && (!checklistComplete.length)) {
+    if (selectedStrategy && checklistComplete.length === 0) {
       setValue('checklistComplete', new Array(selectedStrategy.checklist.length).fill(false));
     }
-  }, [selectedStrategy, setValue]);
+  }, [selectedStrategy, setValue, checklistComplete.length]);
   useEffect(() => {
     if (status === 'CLOSED' && entryPrice && exitPrice && lots && symbol) {
       const diff = type === 'LONG' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
@@ -100,7 +100,9 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
               {selectedStrategy.checklist.map((item, idx) => (
                 <div key={idx} className="flex items-center space-x-3">
                   <Checkbox checked={checklistComplete[idx] || false} onCheckedChange={(c) => {
-                    const n = [...checklistComplete]; n[idx] = !!c; setValue('checklistComplete', n);
+                    const n = [...checklistComplete]; 
+                    n[idx] = !!c; 
+                    setValue('checklistComplete', n);
                   }} />
                   <span className="text-xs font-bold">{item}</span>
                 </div>
@@ -109,12 +111,14 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
           )}
         </AnimatePresence>
         <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Type</Label>
-          <Select onValueChange={(v: any) => setValue('type', v)} value={type}><SelectTrigger><SelectValue /></SelectTrigger>
+          <Select onValueChange={(v: any) => setValue('type', v)} value={type}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="LONG">Long</SelectItem><SelectItem value="SHORT">Short</SelectItem></SelectContent>
           </Select>
         </div>
         <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Status</Label>
-          <Select onValueChange={(v: any) => setValue('status', v)} value={status}><SelectTrigger><SelectValue /></SelectTrigger>
+          <Select onValueChange={(v: any) => setValue('status', v)} value={status}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="OPEN">Open</SelectItem><SelectItem value="CLOSED">Closed</SelectItem></SelectContent>
           </Select>
         </div>

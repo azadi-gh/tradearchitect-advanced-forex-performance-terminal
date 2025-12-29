@@ -4,15 +4,22 @@ import { api } from '@/lib/api-client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit, UserCheck, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit } from 'lucide-react';
 import { formatCurrency } from '@/lib/financial-math';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 export function HomePage() {
-  const { data: stats, isLoading } = useQuery<any>({ queryKey: ['dashboard-stats'], queryFn: () => api('/api/dashboard/stats') });
-  const { data: insights } = useQuery<any>({ queryKey: ['insights'], queryFn: () => api('/api/insights') });
+  const { data: stats, isLoading } = useQuery<any>({ 
+    queryKey: ['dashboard-stats'], 
+    queryFn: () => api('/api/dashboard/stats') 
+  });
+  const { data: insights } = useQuery<any>({ 
+    queryKey: ['insights'], 
+    queryFn: () => api('/api/insights') 
+  });
   useEffect(() => {
     if (stats?.alerts?.length > 0) {
       stats.alerts.forEach((alert: string) => {
@@ -20,12 +27,26 @@ export function HomePage() {
       });
     }
   }, [stats?.alerts]);
-  if (isLoading) return <AppLayout container><div className="space-y-8 animate-pulse"><Skeleton className="h-48 rounded-2xl" /><div className="grid gap-4 md:grid-cols-4"><Skeleton className="h-32 rounded-2xl" /></div></div></AppLayout>;
+  if (isLoading) {
+    return (
+      <AppLayout container>
+        <div className="space-y-8 animate-pulse">
+          <Skeleton className="h-48 rounded-2xl w-full" />
+          <div className="grid gap-6 md:grid-cols-4">
+            <Skeleton className="h-32 rounded-2xl" />
+            <Skeleton className="h-32 rounded-2xl" />
+            <Skeleton className="h-32 rounded-2xl" />
+            <Skeleton className="h-32 rounded-2xl" />
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
   const metrics = [
-    { title: "Net Equity", value: formatCurrency(stats?.equity || 10000), icon: TrendingUp, color: "text-blue-500" },
-    { title: "Edge Win Rate", value: `${(stats?.winRate || 0).toFixed(1)}%`, icon: Award, color: "text-emerald-500" },
-    { title: "Profit Factor", value: (stats?.profitFactor || 0).toFixed(2), icon: Zap, color: "text-amber-500" },
-    { title: "Max Drawdown", value: `${(stats?.maxDrawdown || 0).toFixed(2)}%`, icon: Activity, color: "text-rose-500" },
+    { title: "Net Equity", value: formatCurrency(stats?.equity ?? 10000), icon: TrendingUp, color: "text-blue-500" },
+    { title: "Edge Win Rate", value: `${(stats?.winRate ?? 0).toFixed(1)}%`, icon: Award, color: "text-emerald-500" },
+    { title: "Profit Factor", value: (stats?.profitFactor ?? 0).toFixed(2), icon: Zap, color: "text-amber-500" },
+    { title: "Max Drawdown", value: `${(stats?.maxDrawdown ?? 0).toFixed(2)}%`, icon: Activity, color: "text-rose-500" },
   ];
   const chartData = stats?.recentTrades?.length > 0
     ? [...stats.recentTrades].reverse().reduce((acc: any[], t: any) => {
@@ -42,7 +63,7 @@ export function HomePage() {
             <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <BrainCircuit className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-sm font-black uppercase tracking-widest">Mistake Analyzer: Behavioral Insights</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-white">Mistake Analyzer: Behavioral Insights</CardTitle>
               </div>
               <Badge variant="outline" className="border-blue-400/30 text-blue-400 text-[9px] uppercase font-black">AI Audit Active</Badge>
             </CardHeader>
@@ -60,7 +81,11 @@ export function HomePage() {
                         <p className="text-[11px] text-slate-400 font-medium">{insight.message}</p>
                       </div>
                     </motion.div>
-                  )) : <div className="text-center py-6 text-slate-500 font-bold uppercase text-[10px]">Processing trade history...</div>}
+                  )) : (
+                    <div className="text-center py-6 text-slate-500 font-bold uppercase text-[10px]">
+                      {insights ? "Processing trade history..." : "Establishing behavioral baseline..."}
+                    </div>
+                  )}
                 </AnimatePresence>
               </div>
             </CardContent>
@@ -68,11 +93,11 @@ export function HomePage() {
           <Card className="border-2 border-primary/20 bg-card/40 backdrop-blur-xl group transition-all duration-500">
             <CardHeader className="pb-3 border-b"><CardTitle className="text-xs font-black uppercase">Protocol Discipline</CardTitle></CardHeader>
             <CardContent className="pt-8 flex flex-col items-center gap-6">
-              <div className="text-6xl font-black text-foreground tabular-nums tracking-tighter">{(stats?.psychologyScore || 100)}</div>
+              <div className="text-6xl font-black text-foreground tabular-nums tracking-tighter">{(stats?.psychologyScore ?? 100)}</div>
               <div className="w-full h-4 bg-secondary/50 rounded-full overflow-hidden p-1 border border-border/50">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${stats?.psychologyScore || 100}%` }} className={cn(
+                <motion.div initial={{ width: 0 }} animate={{ width: `${stats?.psychologyScore ?? 100}%` }} className={cn(
                   "h-full rounded-full transition-all duration-1000",
-                  (stats?.psychologyScore || 100) > 70 ? "bg-emerald-500" : (stats?.psychologyScore || 100) > 40 ? "bg-amber-500" : "bg-rose-500"
+                  (stats?.psychologyScore ?? 100) > 70 ? "bg-emerald-500" : (stats?.psychologyScore ?? 100) > 40 ? "bg-amber-500" : "bg-rose-500"
                 )} />
               </div>
               <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Execution Rating</p>
