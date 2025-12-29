@@ -20,7 +20,7 @@ export function SimulatorPage() {
   });
   const results = useMemo(() => runMonteCarlo(params), [params]);
   const chartData = useMemo(() => {
-    if (!results || !results.median) return [];
+    if (!results || !results.median || !results.bestCase || !results.worstCase) return [];
     return results.median.map((_, i) => ({
       trade: i,
       median: results.median[i],
@@ -49,8 +49,14 @@ export function SimulatorPage() {
                 <Label>Starting Balance ($)</Label>
                 <Input
                   type="number"
+                  min="1000"
+                  max="1000000"
+                  step="1000"
                   value={params.startBalance}
-                  onChange={e => setParams(p => ({ ...p, startBalance: Number(e.target.value) }))}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    setParams(p => ({ ...p, startBalance: isNaN(val) || val < 1000 ? p.startBalance : val }));
+                  }}
                 />
               </div>
               <div className="space-y-4">
@@ -60,7 +66,10 @@ export function SimulatorPage() {
                 </div>
                 <Slider
                   value={[params.winRate]}
-                  onValueChange={([v]) => setParams(p => ({ ...p, winRate: v }))}
+                  onValueChange={([v]) => {
+                    const val = Math.max(0, Math.min(100, v));
+                    setParams(p => ({ ...p, winRate: val }));
+                  }}
                   max={100} step={1}
                 />
               </div>
@@ -68,8 +77,13 @@ export function SimulatorPage() {
                 <Label>Risk:Reward Ratio (1:X)</Label>
                 <Input
                   type="number"
+                  min="0.1"
+                  step="0.1"
                   value={params.riskReward}
-                  onChange={e => setParams(p => ({ ...p, riskReward: Number(e.target.value) }))}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    setParams(p => ({ ...p, riskReward: isNaN(val) || val < 0.1 ? p.riskReward : val }));
+                  }}
                 />
               </div>
               <div className="space-y-4">
@@ -79,7 +93,10 @@ export function SimulatorPage() {
                 </div>
                 <Slider
                   value={[params.riskPerTrade]}
-                  onValueChange={([v]) => setParams(p => ({ ...p, riskPerTrade: v }))}
+                  onValueChange={([v]) => {
+                    const val = Math.max(0.1, Math.min(10, v));
+                    setParams(p => ({ ...p, riskPerTrade: val }));
+                  }}
                   max={10} step={0.1}
                 />
               </div>
@@ -87,8 +104,14 @@ export function SimulatorPage() {
                 <Label>Trade Sample Size</Label>
                 <Input
                   type="number"
+                  min="10"
+                  max="10000"
+                  step="10"
                   value={params.tradeCount}
-                  onChange={e => setParams(p => ({ ...p, tradeCount: Number(e.target.value) }))}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    setParams(p => ({ ...p, tradeCount: isNaN(val) || val < 10 ? p.tradeCount : val }));
+                  }}
                 />
               </div>
             </CardContent>
@@ -103,7 +126,7 @@ export function SimulatorPage() {
                 <div className="text-right">
                   <div className="text-xs font-bold uppercase text-muted-foreground">Expected Median</div>
                   <div className="text-xl font-black">
-                    {results?.median ? formatCurrency(results.median[results.median.length - 1]) : "---"}
+                    {results?.median?.length ? formatCurrency(results.median[results.median.length - 1]) : "---"}
                   </div>
                 </div>
               </CardHeader>
@@ -134,7 +157,7 @@ export function SimulatorPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-black text-rose-600">{results?.riskOfRuin.toFixed(1)}%</div>
+                  <div className="text-3xl font-black text-rose-600">{(results?.riskOfRuin ?? 0).toFixed(1)}%</div>
                   <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">Prob. of 50% drawdown</p>
                 </CardContent>
               </Card>
@@ -147,7 +170,11 @@ export function SimulatorPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-black text-emerald-600">
-                    {results?.median ? (((results.median[results.median.length - 1] - params.startBalance) / params.startBalance) * 100).toFixed(1) : "0"}%
+                    {(() => {
+                      const finalBalance = results?.median?.length ? results.median[results.median.length - 1] : params.startBalance;
+                      const growth = ((finalBalance - params.startBalance) / params.startBalance) * 100;
+                      return !isNaN(growth) ? growth.toFixed(1) : "0";
+                    })()}%
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">Average projected return</p>
                 </CardContent>
