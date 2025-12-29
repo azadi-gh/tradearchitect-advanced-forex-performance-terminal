@@ -4,197 +4,94 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { calculatePositionSize, formatCurrency, calculateRecoveryStats } from '@/lib/financial-math';
-import { Calculator, Target, Calendar, Activity, RefreshCw } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { calculatePositionSize, formatCurrency, calculateKellyPercentage, simulateGrowth } from '@/lib/financial-math';
+import { Calculator, Zap, LineChart as ChartIcon, Info, RefreshCw } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 export function RiskLabPage() {
   const [psBalance, setPsBalance] = useState(10000);
-  const [psRisk, setPsRisk] = useState(1);
+  const [winRate, setWinRate] = useState(50);
+  const [rr, setRR] = useState(2);
+  const [risk, setRisk] = useState(1);
   const [psSL, setPsSL] = useState(20);
-  const [psSymbol, setPsSymbol] = useState('EURUSD');
-  const [ddPercent, setDdPercent] = useState(5);
-  const [ddTrades, setDdTrades] = useState(20);
-  const { data: stats } = useQuery<any>({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => api('/api/dashboard/stats'),
-  });
-  const recommendedLots = useMemo(() =>
-    calculatePositionSize(psBalance, psRisk, psSL, psSymbol),
-    [psBalance, psRisk, psSL, psSymbol]
-  );
-  const recovery = useMemo(() => calculateRecoveryStats(ddPercent, ddTrades), [ddPercent, ddTrades]);
-  const days = Array.from({ length: 35 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (34 - i));
-    const key = d.toISOString().split('T')[0];
-    const risk = stats?.dailyRisk?.[key] || 0;
-    return { date: key, risk };
-  });
+  const kelly = useMemo(() => calculateKellyPercentage(winRate, rr), [winRate, rr]);
+  const simData = useMemo(() => {
+    const fixed = simulateGrowth(psBalance, 'FIXED', { winRate, rr, risk });
+    const kData = simulateGrowth(psBalance, 'KELLY', { winRate, rr, kelly });
+    return fixed.map((d, i) => ({
+      trade: d.trade,
+      Fixed: d.balance,
+      Kelly: kData[i].balance
+    }));
+  }, [psBalance, winRate, rr, risk, kelly]);
   return (
     <AppLayout container>
       <div className="space-y-10">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-black tracking-tighter uppercase">Risk Laboratory</h1>
-          <p className="text-muted-foreground text-lg">Capital preservation protocols and mathematical recovery frameworks.</p>
+          <p className="text-muted-foreground text-lg">Mathematical frameworks for terminal growth and capital preservation.</p>
         </div>
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* Position Sizer */}
-          <Card className="border-2 shadow-sm">
+          <Card className="border-2">
             <CardHeader className="bg-muted/30 border-b">
               <div className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-primary" />
-                <CardTitle className="uppercase text-sm font-bold tracking-widest">Terminal Position Sizer</CardTitle>
+                <Zap className="h-5 w-5 text-amber-500" />
+                <CardTitle className="uppercase text-sm font-black">Kelly Criterion Optimizer</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-tight">Account Balance ($)</Label>
-                  <Input 
-                    type="number" 
-                    value={psBalance} 
-                    step="100"
-                    onChange={e => setPsBalance(Number(e.target.value))} 
-                  />
+                <div className="space-y-2"><Label className="text-xs font-bold uppercase">Estimated Win Rate (%)</Label>
+                  <Input type="number" value={winRate} onChange={e => setWinRate(Number(e.target.value))} />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-tight">Instrument Symbol</Label>
-                  <Input 
-                    value={psSymbol} 
-                    onChange={e => setPsSymbol(e.target.value.toUpperCase())} 
-                  />
+                <div className="space-y-2"><Label className="text-xs font-bold uppercase">Avg Risk/Reward (1:X)</Label>
+                  <Input type="number" value={rr} onChange={e => setRR(Number(e.target.value))} />
                 </div>
               </div>
-              <div className="space-y-4 pt-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs font-bold uppercase">Exposure: {psRisk}%</Label>
-                  <span className="text-[10px] font-bold text-primary">MAX SAFETY: 2%</span>
-                </div>
-                <Slider value={[psRisk]} onValueChange={([v]) => setPsRisk(v)} max={5} step={0.1} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Stop Loss Distance (Pips)</Label>
-                <Input 
-                  type="number" 
-                  value={psSL} 
-                  step="0.1"
-                  onChange={e => setPsSL(Number(e.target.value))} 
-                />
-              </div>
-              <div className="bg-primary/5 rounded-2xl p-8 text-center border-2 border-dashed border-primary/20">
-                <p className="text-[10px] text-muted-foreground font-black uppercase mb-2 tracking-widest">Recommended Exposure</p>
-                <div className="text-5xl font-black text-primary tabular-nums">{recommendedLots.toFixed(2)} <span className="text-sm font-bold text-muted-foreground">LOTS</span></div>
+              <div className="bg-amber-500/5 rounded-2xl p-8 text-center border-2 border-dashed border-amber-500/20">
+                <p className="text-[10px] text-muted-foreground font-black uppercase mb-2 tracking-widest">Optimal Kelly Fractional</p>
+                <div className="text-5xl font-black text-amber-600 tabular-nums">{kelly.toFixed(1)}% <span className="text-sm font-bold text-muted-foreground">EXPOSURE</span></div>
+                <p className="text-[10px] text-amber-700/60 mt-2 font-bold uppercase">Scientific limit for maximal growth efficiency.</p>
               </div>
             </CardContent>
           </Card>
-          {/* Recovery Planner */}
-          <Card className="border-2 shadow-sm">
+          <Card className="border-2">
             <CardHeader className="bg-muted/30 border-b">
               <div className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 text-rose-500" />
-                <CardTitle className="uppercase text-sm font-bold tracking-widest">Drawdown Recovery Matrix</CardTitle>
+                <ChartIcon className="h-5 w-5 text-primary" />
+                <CardTitle className="uppercase text-sm font-black">Growth Strategy Comparison</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-6 space-y-8">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-rose-600">Current DD %</Label>
-                  <Input 
-                    type="number" 
-                    value={ddPercent} 
-                    step="0.5"
-                    onChange={e => setDdPercent(Number(e.target.value))} 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-emerald-600">Recovery Window</Label>
-                  <Input 
-                    type="number" 
-                    value={ddTrades} 
-                    step="1"
-                    onChange={e => setDdTrades(Number(e.target.value))} 
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-6 rounded-xl bg-rose-50 dark:bg-rose-950/20 text-center border-2 border-rose-100 dark:border-rose-900">
-                  <p className="text-[10px] font-black uppercase text-rose-600 mb-2">Required Gain</p>
-                  <p className="text-3xl font-black tabular-nums">{recovery.targetGain.toFixed(1)}%</p>
-                </div>
-                <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center border-2 border-emerald-100 dark:border-emerald-900">
-                  <p className="text-[10px] font-black uppercase text-emerald-600 mb-2">Target Win Rate</p>
-                  <p className="text-3xl font-black tabular-nums">{recovery.requiredWinRate.toFixed(1)}%</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-xl border-2 border-blue-100 dark:border-blue-900">
-                <Activity className="h-5 w-5 text-blue-500 shrink-0" />
-                <p className="text-[10px] font-bold text-blue-700 leading-tight uppercase">
-                  Protocol: Assumes standardized 1:2 R:R during recovery phase. Adjust execution focus accordingly.
-                </p>
-              </div>
+            <CardContent className="h-[300px] p-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={simData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="trade" hide />
+                  <YAxis tickFormatter={(v) => `$${v/1000}k`} />
+                  <Tooltip formatter={(v: any) => formatCurrency(v)} />
+                  <Legend />
+                  <Line type="monotone" dataKey="Fixed" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Kelly" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
-          {/* Exposure Heatmap */}
           <Card className="lg:col-span-2 border-2">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="uppercase text-sm font-bold tracking-widest">Risk Exposure Heatmap</CardTitle>
+             <CardHeader className="border-b"><CardTitle className="text-sm font-black uppercase">Capital Allocation Logic</CardTitle></CardHeader>
+             <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-4 bg-secondary/30 rounded-xl border space-y-2">
+                   <h4 className="font-black text-xs uppercase">Fixed Fractional</h4>
+                   <p className="text-[10px] text-muted-foreground font-medium uppercase">Stable, linear growth. Safest for beginners. Recommended: 1-2% risk.</p>
                 </div>
-                <CardDescription className="text-xs uppercase font-bold mt-1">Daily capital utilization (%)</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="w-full">
-                <div className="min-w-[600px] pb-4">
-                  <div className="grid grid-cols-7 gap-3">
-                    {['SUN','MON','TUE','WED','THU','FRI','SAT'].map((day, i) => (
-                      <div key={i} className="text-center text-[10px] font-black text-muted-foreground tracking-widest">{day}</div>
-                    ))}
-                    <TooltipProvider delayDuration={0}>
-                      {days.map((d, i) => (
-                        <Tooltip key={i}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className={cn(
-                                "aspect-square rounded-md border-2 transition-all cursor-pointer hover:scale-105",
-                                d.risk === 0 ? "bg-muted/20 border-transparent" :
-                                d.risk < 1 ? "bg-emerald-500/20 border-emerald-500/30" :
-                                d.risk < 3 ? "bg-amber-500/40 border-amber-500/50" :
-                                "bg-rose-500/60 border-rose-500/70"
-                              )}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p className="text-[10px] font-black uppercase">{d.date}</p>
-                            <p className="text-xs font-bold">{d.risk.toFixed(2)}% RISK</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </TooltipProvider>
-                  </div>
+                <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-2">
+                   <h4 className="font-black text-xs uppercase text-amber-600">Kelly Criterion</h4>
+                   <p className="text-[10px] text-amber-700 font-medium uppercase">Aggressive, exponential growth. High volatility. Avoid if ruin-averse.</p>
                 </div>
-              </ScrollArea>
-              <div className="mt-6 flex items-center justify-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-muted/20 rounded border border-muted" />
-                  <span className="text-[10px] uppercase font-black text-muted-foreground">No Exposure</span>
+                <div className="p-4 bg-primary/5 rounded-xl border space-y-2">
+                   <h4 className="font-black text-xs uppercase">Fixed Lot</h4>
+                   <p className="text-[10px] text-muted-foreground font-medium uppercase">Not recommended for dynamic balances. Risks over-leverage on drawdown.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-emerald-500/20 rounded border border-emerald-500/30" />
-                  <span className="text-[10px] uppercase font-black text-muted-foreground">Safe (&lt;1%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-rose-500/60 rounded border border-rose-500/70" />
-                  <span className="text-[10px] uppercase font-black text-muted-foreground">High (&gt;3%)</span>
-                </div>
-              </div>
-            </CardContent>
+             </CardContent>
           </Card>
         </div>
       </div>

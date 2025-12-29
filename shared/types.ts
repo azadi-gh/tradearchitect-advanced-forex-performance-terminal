@@ -31,6 +31,23 @@ export interface Trade {
   entryTime: number;
   exitTime?: number;
 }
+export interface Watchlist {
+  id: string;
+  userId: string;
+  pairs: string[];
+}
+export interface PerformanceInsight {
+  type: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+  title: string;
+  message: string;
+  score: number;
+}
+export interface WatchlistPair {
+  symbol: string;
+  category: 'Forex' | 'Commodities' | 'Indices' | 'Baskets';
+  opportunityBadge?: 'HOT' | 'STREAK' | 'STABLE' | null;
+  winRate?: number;
+}
 export interface FinancialSnapshot {
   equity: number;
   balance: number;
@@ -40,6 +57,10 @@ export interface FinancialSnapshot {
   totalTrades: number;
   maxDrawdown: number;
   recentTrades: Trade[];
+  psychologyScore: number;
+  alerts: string[];
+  dailyRisk: Record<string, number>;
+  opportunityBadges: Record<string, 'HOT' | 'STREAK' | 'STABLE'>;
 }
 export interface StrategyPerformance {
   strategyId: string;

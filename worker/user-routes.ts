@@ -1,14 +1,30 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
-import { JournalEntity, StrategyEntity } from "./entities";
+import { JournalEntity, StrategyEntity, WatchlistEntity } from "./entities";
 import { ok, bad, notFound } from './core-utils';
-import type { Trade, Strategy } from "@shared/types";
+import type { Trade, Strategy, Watchlist } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   const USER_ID = "default-user";
   app.get('/api/dashboard/stats', async (c) => {
     const journal = new JournalEntity(c.env, USER_ID);
     const stats = await journal.getStats();
     return ok(c, stats);
+  });
+  app.get('/api/insights', async (c) => {
+    const journal = new JournalEntity(c.env, USER_ID);
+    const insights = await journal.getInsights();
+    return ok(c, insights);
+  });
+  app.get('/api/watchlist', async (c) => {
+    const watchlist = new WatchlistEntity(c.env, USER_ID);
+    const state = await watchlist.getState();
+    return ok(c, state);
+  });
+  app.put('/api/watchlist', async (c) => {
+    const body = await c.req.json() as Partial<Watchlist>;
+    const watchlist = new WatchlistEntity(c.env, USER_ID);
+    await watchlist.patch(body);
+    return ok(c, await watchlist.getState());
   });
   app.get('/api/journal/stats/strategies', async (c) => {
     const journal = new JournalEntity(c.env, USER_ID);
@@ -65,19 +81,5 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       createdAt: Date.now()
     });
     return ok(c, strategy);
-  });
-  app.put('/api/strategies/:id', async (c) => {
-    const id = c.req.param('id');
-    const updates = await c.req.json() as Partial<Strategy>;
-    const entity = new StrategyEntity(c.env, id);
-    if (!(await entity.exists())) return notFound(c, 'Strategy not found');
-    await entity.patch(updates);
-    return ok(c, await entity.getState());
-  });
-  app.delete('/api/strategies/:id', async (c) => {
-    const id = c.req.param('id');
-    const success = await StrategyEntity.delete(c.env, id);
-    if (!success) return notFound(c, 'Strategy not found');
-    return ok(c, { id });
   });
 }
