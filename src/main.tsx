@@ -14,6 +14,7 @@ import { RiskLabPage } from '@/pages/RiskLabPage'
 import { StrategiesPage } from '@/pages/StrategiesPage'
 import { SimulatorPage } from '@/pages/SimulatorPage'
 import { WatchlistPage } from '@/pages/WatchlistPage'
+import { ManualPage } from '@/pages/ManualPage'
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30000 } }
 });
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
   { path: "/simulator", element: <SimulatorPage />, errorElement: <RouteErrorBoundary /> },
   { path: "/strategies", element: <StrategiesPage />, errorElement: <RouteErrorBoundary /> },
   { path: "/watchlist", element: <WatchlistPage />, errorElement: <RouteErrorBoundary /> },
+  { path: "/manual", element: <ManualPage />, errorElement: <RouteErrorBoundary /> },
 ]);
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

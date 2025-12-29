@@ -96,4 +96,51 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!success) return notFound(c, 'Strategy not found');
     return ok(c, { id });
   });
+  // SYSTEM INTEGRITY ROUTES
+  app.get('/api/system/export', async (c) => {
+    const journal = await new JournalEntity(c.env, USER_ID).getState();
+    const watchlist = await new WatchlistEntity(c.env, USER_ID).getState();
+    const strategies = await StrategyEntity.list(c.env);
+    const payload = {
+      version: "2.0",
+      timestamp: Date.now(),
+      data: {
+        journal,
+        watchlist,
+        strategies: strategies.items
+      }
+    };
+    return ok(c, payload);
+  });
+  app.post('/api/system/snapshot', async (c) => {
+    const journal = await new JournalEntity(c.env, USER_ID).getState();
+    const watchlist = await new WatchlistEntity(c.env, USER_ID).getState();
+    const strategies = await StrategyEntity.list(c.env);
+    const snapshot = {
+      timestamp: Date.now(),
+      journal,
+      watchlist,
+      strategies: strategies.items
+    };
+    // Storing in a special GlobalDurableObject entry for snapshots
+    const doId = c.env.GlobalDurableObject.idFromName(`system:snapshot:${USER_ID}`);
+    const stub = c.env.GlobalDurableObject.get(doId);
+    await stub.casPut(`system:snapshot`, 0, snapshot);
+    return ok(c, { timestamp: snapshot.timestamp });
+  });
+  app.get('/api/system/status', async (c) => {
+    const journal = await new JournalEntity(c.env, USER_ID).getState();
+    const strategies = await StrategyEntity.list(c.env);
+    const doId = c.env.GlobalDurableObject.idFromName(`system:snapshot:${USER_ID}`);
+    const stub = c.env.GlobalDurableObject.get(doId);
+    const lastSnapshotDoc = await stub.getDoc(`system:snapshot`);
+    return ok(c, {
+      lastSnapshot: lastSnapshotDoc ? (lastSnapshotDoc.data as any).timestamp : null,
+      counts: {
+        trades: journal.trades.length,
+        strategies: strategies.items.length
+      },
+      healthy: true
+    });
+  });
 }

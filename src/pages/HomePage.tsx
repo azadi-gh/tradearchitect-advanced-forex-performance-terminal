@@ -1,18 +1,21 @@
 import React, { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, downloadJson } from '@/lib/api-client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { SessionTimeline } from '@/components/session-timeline';
-import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit, Timer } from 'lucide-react';
+import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit, Download, Database, RefreshCw, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/financial-math';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { format } from 'date-fns';
 export function HomePage() {
+  const queryClient = useQueryClient();
   const { data: stats, isLoading } = useQuery<any>({
     queryKey: ['dashboard-stats'],
     queryFn: () => api('/api/dashboard/stats')
@@ -21,6 +24,26 @@ export function HomePage() {
     queryKey: ['insights'],
     queryFn: () => api('/api/insights')
   });
+  const { data: sysStatus } = useQuery<any>({
+    queryKey: ['system-status'],
+    queryFn: () => api('/api/system/status')
+  });
+  const createSnapshot = useMutation({
+    mutationFn: () => api('/api/system/snapshot', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-status'] });
+      toast.success("Terminal Snapshot Created Successfully");
+    }
+  });
+  const handleExport = async () => {
+    try {
+      const data = await api<any>('/api/system/export');
+      downloadJson(data, `trade-architect-backup-${format(new Date(), 'yyyy-MM-dd')}.json`);
+      toast.success("Export Complete");
+    } catch (e) {
+      toast.error("Export Failed");
+    }
+  };
   useEffect(() => {
     if (stats?.alerts?.length > 0) {
       stats.alerts.forEach((alert: string) => {
@@ -92,19 +115,54 @@ export function HomePage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-primary/20 bg-card/40 backdrop-blur-xl group transition-all duration-500 flex flex-col">
-            <CardHeader className="pb-3 border-b"><CardTitle className="text-xs font-black uppercase">Protocol Discipline</CardTitle></CardHeader>
-            <CardContent className="flex-1 pt-8 flex flex-col items-center justify-center gap-6">
-              <div className="text-6xl font-black text-foreground tabular-nums tracking-tighter">{(stats?.psychologyScore ?? 100)}</div>
-              <div className="w-full h-4 bg-secondary/50 rounded-full overflow-hidden p-1 border border-border/50">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${stats?.psychologyScore ?? 100}%` }} className={cn(
-                  "h-full rounded-full transition-all duration-1000",
-                  (stats?.psychologyScore ?? 100) > 70 ? "bg-emerald-500" : (stats?.psychologyScore ?? 100) > 40 ? "bg-amber-500" : "bg-rose-500"
-                )} />
-              </div>
-              <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Execution Rating</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6 flex flex-col">
+            <Card className="border-2 border-primary/20 bg-card/40 backdrop-blur-xl group transition-all duration-500 flex flex-col">
+              <CardHeader className="pb-3 border-b"><CardTitle className="text-xs font-black uppercase">Protocol Discipline</CardTitle></CardHeader>
+              <CardContent className="pt-8 flex flex-col items-center justify-center gap-6">
+                <div className="text-6xl font-black text-foreground tabular-nums tracking-tighter">{(stats?.psychologyScore ?? 100)}</div>
+                <div className="w-full h-4 bg-secondary/50 rounded-full overflow-hidden p-1 border border-border/50">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${stats?.psychologyScore ?? 100}%` }} className={cn(
+                    "h-full rounded-full transition-all duration-1000",
+                    (stats?.psychologyScore ?? 100) > 70 ? "bg-emerald-500" : (stats?.psychologyScore ?? 100) > 40 ? "bg-amber-500" : "bg-rose-500"
+                  )} />
+                </div>
+                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Execution Rating</p>
+              </CardContent>
+            </Card>
+            <Card className="flex-1 border-2 bg-slate-900 border-slate-800 text-white shadow-soft p-0 overflow-hidden">
+               <CardHeader className="p-4 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
+                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">System Integrity</CardTitle>
+                 <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 text-[9px] animate-pulse">Synced</Badge>
+               </CardHeader>
+               <CardContent className="p-4 space-y-4">
+                 <div className="flex items-center justify-between">
+                   <div className="flex flex-col">
+                     <span className="text-[9px] font-black uppercase text-slate-500">Last Snapshot</span>
+                     <span className="text-xs font-bold text-white tabular-nums">
+                       {sysStatus?.lastSnapshot ? format(sysStatus.lastSnapshot, 'MMM dd, HH:mm') : 'None Detected'}
+                     </span>
+                   </div>
+                   <Button size="sm" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-white" onClick={() => queryClient.invalidateQueries({ queryKey: ['system-status'] })}>
+                     <RefreshCw className="h-4 w-4" />
+                   </Button>
+                 </div>
+                 <div className="grid grid-cols-2 gap-2 pt-2">
+                    <Button onClick={() => createSnapshot.mutate()} disabled={createSnapshot.isPending} className="bg-white/5 hover:bg-white/10 text-white border-white/10 text-[9px] font-black uppercase h-9 gap-2">
+                      <Database className="h-3 w-3 text-blue-400" /> Snapshot
+                    </Button>
+                    <Button onClick={handleExport} className="bg-white/5 hover:bg-white/10 text-white border-white/10 text-[9px] font-black uppercase h-9 gap-2">
+                      <Download className="h-3 w-3 text-emerald-400" /> Export
+                    </Button>
+                 </div>
+                 <div className="pt-4 border-t border-white/5 flex items-center gap-2">
+                    <Clock className="h-3 w-3 text-slate-500" />
+                    <span className="text-[8px] font-black uppercase text-slate-500 tracking-tighter">
+                      Health Check: OK • {sysStatus?.counts?.trades ?? 0} Records Active
+                    </span>
+                 </div>
+               </CardContent>
+            </Card>
+          </div>
         </div>
         <div className="grid gap-6 md:grid-cols-4">
           {metrics.map((m, idx) => (

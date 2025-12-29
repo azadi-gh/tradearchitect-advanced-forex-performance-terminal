@@ -70,21 +70,21 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
   const type = useWatch({ control, name: 'type' });
   const strategyId = useWatch({ control, name: 'strategyId' });
   const checklistComplete = useWatch({ control, name: 'checklistComplete' }) || [];
-  const selectedStrategy = useMemo(() => 
-    strategies?.find(s => s.id === strategyId), 
+  const selectedStrategy = useMemo(() =>
+    strategies?.find(s => s.id === strategyId),
     [strategies, strategyId]
   );
-  // Sync checklist items when strategy changes to avoid render mismatches
+  const checklistLength = checklistComplete.length;
   useEffect(() => {
     if (selectedStrategy) {
       const expectedLength = selectedStrategy.checklist.length;
-      if (checklistComplete.length !== expectedLength) {
+      if (checklistLength !== expectedLength) {
         setValue('checklistComplete', new Array(expectedLength).fill(false));
       }
-    } else if (checklistComplete.length > 0) {
+    } else if (checklistLength > 0 && strategyId === 'manual') {
       setValue('checklistComplete', []);
     }
-  }, [selectedStrategy, setValue]);
+  }, [selectedStrategy, setValue, checklistLength, strategyId]);
   useEffect(() => {
     if (status === 'CLOSED' && Number.isFinite(entryPrice) && Number.isFinite(exitPrice) && Number.isFinite(lots) && symbol?.trim()) {
       const diff = type === 'LONG' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);

@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutDashboard, BookOpen, Calculator, Target, Search, PlusCircle, TrendingUp, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calculator, Target, Search, PlusCircle, TrendingUp, ShieldCheck, HelpCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
@@ -14,6 +14,7 @@ export function AppSidebar(): JSX.Element {
     { title: "Risk Lab", icon: Calculator, path: "/risk", tooltip: "Position & Kelly Lab" },
     { title: "Growth Sim", icon: TrendingUp, path: "/simulator", tooltip: "Monte Carlo Projections" },
     { title: "Strategy Vault", icon: Target, path: "/strategies", tooltip: "System Management" },
+    { title: "Manual", icon: HelpCircle, path: "/manual", tooltip: "Terminal Manual" },
   ];
   return (
     <Sidebar className="border-r border-border">
