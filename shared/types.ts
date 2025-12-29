@@ -9,6 +9,7 @@ export interface Strategy {
   id: string;
   name: string;
   description: string;
+  checklist: string[];
   createdAt: number;
 }
 export interface Trade {
@@ -24,6 +25,7 @@ export interface Trade {
   takeProfit?: number;
   pnl?: number;
   strategyId?: string;
+  checklistComplete?: boolean[];
   tags: string[];
   notes?: string;
   entryTime: number;
@@ -38,6 +40,17 @@ export interface FinancialSnapshot {
   totalTrades: number;
   maxDrawdown: number;
   recentTrades: Trade[];
+}
+export interface StrategyPerformance {
+  strategyId: string;
+  name: string;
+  winRate: number;
+  profitFactor: number;
+  expectancy: number;
+  maxDrawdown: number;
+  totalTrades: number;
+  survivabilityScore: number;
+  disciplineScore: number;
 }
 export interface User {
   id: string;

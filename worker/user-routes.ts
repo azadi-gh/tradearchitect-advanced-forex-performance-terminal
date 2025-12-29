@@ -29,7 +29,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       id: crypto.randomUUID(),
       entryTime: trade.entryTime || Date.now(),
       status: trade.status || 'OPEN',
-      tags: trade.tags || []
+      tags: trade.tags || [],
+      checklistComplete: trade.checklistComplete || []
     });
     return ok(c, saved);
   });
@@ -60,8 +61,23 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       id: crypto.randomUUID(),
       name: data.name,
       description: data.description || "",
+      checklist: data.checklist || [],
       createdAt: Date.now()
     });
     return ok(c, strategy);
+  });
+  app.put('/api/strategies/:id', async (c) => {
+    const id = c.req.param('id');
+    const updates = await c.req.json() as Partial<Strategy>;
+    const entity = new StrategyEntity(c.env, id);
+    if (!(await entity.exists())) return notFound(c, 'Strategy not found');
+    await entity.patch(updates);
+    return ok(c, await entity.getState());
+  });
+  app.delete('/api/strategies/:id', async (c) => {
+    const id = c.req.param('id');
+    const success = await StrategyEntity.delete(c.env, id);
+    if (!success) return notFound(c, 'Strategy not found');
+    return ok(c, { id });
   });
 }

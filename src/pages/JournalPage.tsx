@@ -10,9 +10,10 @@ import { formatCurrency } from '@/lib/financial-math';
 import { TradeForm } from '@/components/trade-form';
 import type { Trade } from '@shared/types';
 import { format } from 'date-fns';
-import { Plus, MoreVertical, Edit, Trash2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Plus, MoreVertical, Edit, Trash2, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 export function JournalPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -55,23 +56,24 @@ export function JournalPage() {
   });
   return (
     <AppLayout container>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black tracking-tighter uppercase">Execution Ledger</h1>
-            <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Source of Truth for Trading Performance</p>
+            <h1 className="text-4xl font-black tracking-tighter uppercase text-foreground">Execution Ledger</h1>
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Source of Truth for Multi-Strategy Performance</p>
           </div>
           <Sheet open={open || !!editingTrade} onOpenChange={(v) => { if (!v) { setOpen(false); setEditingTrade(null); } }}>
             <SheetTrigger asChild>
-              <Button onClick={() => setOpen(true)} className="gap-2 font-bold uppercase tracking-widest shadow-lg">
-                <Plus className="h-4 w-4" />
-                Log Position
+              <Button onClick={() => setOpen(true)} className="h-12 gap-3 px-6 font-black uppercase tracking-tighter shadow-xl shadow-primary/20 bg-primary group">
+                <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+                Commit Execution
               </Button>
             </SheetTrigger>
-            <SheetContent className="sm:max-w-md overflow-y-auto">
-              <SheetHeader className="mb-6">
-                <SheetTitle className="text-xl font-black uppercase tracking-tighter">
-                  {editingTrade ? "Modify Terminal Entry" : "New Terminal Entry"}
+            <SheetContent className="sm:max-w-[480px] overflow-y-auto backdrop-blur-xl bg-background/80">
+              <SheetHeader className="mb-8">
+                <SheetTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+                  <div className="h-8 w-2 bg-primary rounded-full" />
+                  {editingTrade ? "Modify Terminal Record" : "New Terminal Record"}
                 </SheetTitle>
               </SheetHeader>
               <TradeForm
@@ -88,80 +90,146 @@ export function JournalPage() {
             </SheetContent>
           </Sheet>
         </div>
-        <div className="rounded-2xl border-2 bg-card shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/50 border-b-2">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[140px] font-black uppercase text-[10px] tracking-widest">Timestamp</TableHead>
-                <TableHead className="font-black uppercase text-[10px] tracking-widest">Symbol</TableHead>
-                <TableHead className="font-black uppercase text-[10px] tracking-widest">Type</TableHead>
-                <TableHead className="hidden md:table-cell font-black uppercase text-[10px] tracking-widest">Volume</TableHead>
-                <TableHead className="hidden sm:table-cell font-black uppercase text-[10px] tracking-widest">Entry</TableHead>
-                <TableHead className="font-black uppercase text-[10px] tracking-widest text-center">Status</TableHead>
-                <TableHead className="text-right font-black uppercase text-[10px] tracking-widest">Realized PnL</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-20 animate-pulse font-bold text-muted-foreground">SYNCING LEDGER DATA...</TableCell></TableRow>
-              ) : trades?.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-32 text-muted-foreground uppercase text-xs font-black tracking-widest">No Executions Recorded.</TableCell></TableRow>
-              ) : trades?.map((trade) => (
-                <TableRow key={trade.id} className="group hover:bg-muted/30 transition-colors border-b last:border-0">
-                  <TableCell className="font-mono text-[10px] text-muted-foreground font-bold uppercase">
-                    {format(trade.entryTime, 'MMM dd | HH:mm')}
-                  </TableCell>
-                  <TableCell className="font-black tracking-tight">{trade.symbol}</TableCell>
-                  <TableCell>
-                    <div className={cn(
-                      "flex items-center gap-1.5 font-black text-[10px] px-2 py-1 rounded border uppercase tracking-tighter w-fit",
-                      trade.type === 'LONG' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-rose-500/10 border-rose-500/20 text-rose-600"
-                    )}>
-                      {trade.type === 'LONG' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {trade.type}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell font-mono font-bold">{trade.lots.toFixed(2)}</TableCell>
-                  <TableCell className="hidden sm:table-cell font-mono text-muted-foreground">{trade.entryPrice.toFixed(5)}</TableCell>
-                  <TableCell className="text-center">
-                    <span className={cn(
-                      "px-2 py-1 rounded-md text-[9px] font-black uppercase border tracking-widest",
-                      trade.status === 'OPEN' ? "bg-blue-500/10 border-blue-500/20 text-blue-600" : "bg-slate-500/10 border-slate-500/20 text-slate-500"
-                    )}>
-                      {trade.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className={cn("text-right font-black tabular-nums text-sm", (trade.pnl || 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                    {trade.pnl !== undefined ? formatCurrency(trade.pnl) : '---'}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem onClick={() => setEditingTrade(trade)} className="font-bold uppercase text-[10px]">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Update
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive font-bold uppercase text-[10px]" 
-                          onClick={() => deleteTrade.mutate(trade.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Purge Entry
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+        <div className="rounded-3xl border-2 border-border/50 bg-card/40 backdrop-blur-xl shadow-soft overflow-hidden">
+          {/* Desktop Table */}
+          <div className="hidden lg:block">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-b-2">
+                  <TableHead className="w-[120px] font-black uppercase text-[10px] tracking-widest px-6">Timestamp</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest">Symbol</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest">Protocol</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-center">Discipline</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-center">Status</TableHead>
+                  <TableHead className="text-right font-black uppercase text-[10px] tracking-widest px-6">PnL Outcome</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-24 animate-pulse font-black text-muted-foreground uppercase tracking-widest">Synchronizing Ledger...</TableCell></TableRow>
+                ) : trades?.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-32 text-muted-foreground uppercase text-xs font-black tracking-widest">System Empty. No Executions Found.</TableCell></TableRow>
+                ) : trades?.map((trade) => (
+                  <TableRow key={trade.id} className="group hover:bg-primary/5 transition-colors border-b last:border-0">
+                    <TableCell className="font-mono text-[10px] text-muted-foreground font-bold uppercase px-6">
+                      {format(trade.entryTime, 'MMM dd | HH:mm')}
+                    </TableCell>
+                    <TableCell>
+                       <div className="flex items-center gap-3">
+                         <div className={cn(
+                            "p-1.5 rounded-lg border",
+                            trade.type === 'LONG' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-rose-500/10 border-rose-500/20 text-rose-600"
+                         )}>
+                            {trade.type === 'LONG' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                         </div>
+                         <span className="font-black tracking-tighter text-sm uppercase">{trade.symbol}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground border bg-secondary/30 px-2 py-0.5 rounded">
+                        {trade.strategyId ? "Strategy Locked" : "Manual Entry"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex justify-center">
+                        {trade.checklistComplete?.every(c => c === true) && trade.checklistComplete.length > 0 ? (
+                          <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span className="text-[9px] font-black uppercase">Perfect</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            <AlertCircle className="h-3 w-3" />
+                            <span className="text-[9px] font-black uppercase">Drifted</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className={cn(
+                        "text-[9px] font-black uppercase border tracking-widest",
+                        trade.status === 'OPEN' ? "text-blue-600 border-blue-500/20" : "text-muted-foreground border-border"
+                      )}>
+                        {trade.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={cn("text-right font-black tabular-nums text-sm px-6", (trade.pnl || 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {trade.pnl !== undefined ? formatCurrency(trade.pnl) : '---'}
+                    </TableCell>
+                    <TableCell className="px-6">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-background/95 backdrop-blur-md">
+                          <DropdownMenuItem onClick={() => setEditingTrade(trade)} className="font-black uppercase text-[10px] tracking-widest">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Modify Record
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive font-black uppercase text-[10px] tracking-widest"
+                            onClick={() => deleteTrade.mutate(trade.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Purge Entry
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {/* Mobile Card View */}
+          <div className="lg:hidden p-4 space-y-4">
+            {isLoading ? (
+               <div className="py-20 text-center animate-pulse font-black text-muted-foreground">SYNCING...</div>
+            ) : trades?.map(trade => (
+              <motion.div 
+                key={trade.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-muted/20 border border-border/50 rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "p-2 rounded-lg border",
+                        trade.type === 'LONG' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-rose-500/10 border-rose-500/20 text-rose-600"
+                    )}>
+                        {trade.type === 'LONG' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-lg uppercase tracking-tighter">{trade.symbol}</h4>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">{format(trade.entryTime, 'MMM dd, HH:mm')}</p>
+                    </div>
+                  </div>
+                  <div className={cn("font-black text-lg tabular-nums", (trade.pnl || 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                    {trade.pnl !== undefined ? formatCurrency(trade.pnl) : 'OPEN'}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                   <div className="flex gap-2">
+                     <span className="text-[9px] font-black uppercase bg-secondary px-2 py-0.5 rounded">{trade.status}</span>
+                     {trade.checklistComplete?.every(c => c === true) && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
+                          <CheckCircle2 className="h-2 w-2" /> Discipline
+                        </span>
+                     )}
+                   </div>
+                   <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setEditingTrade(trade)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteTrade.mutate(trade.id)} className="h-8 w-8 text-rose-500"><Trash2 className="h-4 w-4" /></Button>
+                   </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </AppLayout>

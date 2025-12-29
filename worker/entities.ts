@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env } from "./core-utils";
-import type { Trade, Strategy, FinancialSnapshot } from "@shared/types";
+import type { Trade, Strategy, FinancialSnapshot, StrategyPerformance } from "@shared/types";
 export class StrategyEntity extends IndexedEntity<Strategy> {
   static readonly entityName = "strategy";
   static readonly indexName = "strategies";
@@ -7,26 +7,29 @@ export class StrategyEntity extends IndexedEntity<Strategy> {
     id: "",
     name: "",
     description: "",
+    checklist: [],
     createdAt: 0
   };
   static seedData = [
-    { id: "s1", name: "Trend Follower", description: "Standard trend following strategy", createdAt: Date.now() },
-    { id: "s2", name: "Mean Reversion", description: "Standard mean reversion strategy", createdAt: Date.now() }
+    { 
+      id: "s1", 
+      name: "Trend Follower", 
+      description: "Standard trend following strategy", 
+      checklist: ["Trend Alignment", "HTF S/R Level", "Volume Confirmation", "2% Risk Check"],
+      createdAt: Date.now() 
+    },
+    { 
+      id: "s2", 
+      name: "Mean Reversion", 
+      description: "Standard mean reversion strategy", 
+      checklist: ["RSI Overbought/Sold", "Bollinger Band Touch", "Candlestick Pattern", "Risk/Reward > 2"],
+      createdAt: Date.now() 
+    }
   ];
 }
 export interface JournalState {
   trades: Trade[];
   balance: number;
-}
-export interface StrategyPerformance {
-  strategyId: string;
-  name: string;
-  winRate: number;
-  profitFactor: number;
-  expectancy: number;
-  maxDrawdown: number;
-  totalTrades: number;
-  survivabilityScore: number;
 }
 export class JournalEntity extends Entity<JournalState> {
   static readonly entityName = "journal";
@@ -65,10 +68,20 @@ export class JournalEntity extends Entity<JournalState> {
     const alerts: string[] = [];
     const sorted = [...trades].sort((a, b) => b.entryTime - a.entryTime);
     const now = Date.now();
-    // 1. Revenge Trading Check: Entry within 1 hour of a closed loss
+    // 1. Discipline Warning: Check most recent trade for checklist completion
+    if (sorted.length > 0) {
+      const last = sorted[0];
+      if (last.strategyId && last.checklistComplete) {
+        const completedCount = last.checklistComplete.filter(Boolean).length;
+        if (completedCount < last.checklistComplete.length) {
+          alerts.push("Discipline Warning: Last execution missed checklist criteria.");
+        }
+      }
+    }
+    // 2. Revenge Trading Check
     for (let i = 0; i < sorted.length - 1; i++) {
-      const t1 = sorted[i]; // Newer
-      const t2 = sorted[i+1]; // Older
+      const t1 = sorted[i]; 
+      const t2 = sorted[i+1];
       if (t2.status === 'CLOSED' && (t2.pnl || 0) < 0) {
         const exitTime = t2.exitTime || t2.entryTime;
         if ((t1.entryTime - exitTime) < 3600000 && (t1.entryTime - exitTime) > 0) {
@@ -77,25 +90,19 @@ export class JournalEntity extends Entity<JournalState> {
         }
       }
     }
-    // 2. Overtrading Check: More than 8 trades in 24 hours
+    // 3. Overtrading Check
     const last24h = sorted.filter(t => t.entryTime > now - 86400000);
     if (last24h.length > 8) alerts.push("High Frequency Alert: Over 8 trades in 24 hours.");
-    // 3. Loss Streak Check: 4 consecutive losses
+    // 4. Loss Streak Check
     let losses = 0;
     const closedSorted = sorted.filter(t => t.status === 'CLOSED');
     for (const t of closedSorted) {
-      if ((t.pnl || 0) < 0) losses++;
-      else break;
-      if (losses >= 4) {
-        alerts.push("Loss Streak Alert: 4 or more consecutive losses.");
-        break;
-      }
+      if ((t.pnl || 0) < 0) losses++; else break;
+      if (losses >= 4) { alerts.push("Loss Streak Alert: 4+ consecutive losses."); break; }
     }
-    // 4. Drawdown Threshold: 15% from initial balance
+    // 5. Drawdown Threshold
     const ddPercent = ((balance - currentEquity) / balance) * 100;
-    if (ddPercent > 15) {
-      alerts.push(`Critical Account Drawdown: ${ddPercent.toFixed(1)}% limit exceeded.`);
-    }
+    if (ddPercent > 15) alerts.push(`Critical Account Drawdown: ${ddPercent.toFixed(1)}% limit exceeded.`);
     return Array.from(new Set(alerts));
   }
   async getStrategyPerformance(env: Env): Promise<StrategyPerformance[]> {
@@ -111,7 +118,14 @@ export class JournalEntity extends Entity<JournalState> {
       const totalLoss = Math.abs(losses.reduce((acc, t) => acc + (t.pnl || 0), 0));
       const pf = totalLoss === 0 ? (totalProfit > 0 ? 10 : 0) : totalProfit / totalLoss;
       const expectancy = sTrades.length > 0 ? (totalProfit - totalLoss) / sTrades.length : 0;
-      // Real-time strategy-specific Max Drawdown
+      // Discipline Score calculation
+      const tradesWithChecklist = sTrades.filter(t => t.checklistComplete);
+      const perfectDisciplineTrades = tradesWithChecklist.filter(t => 
+        t.checklistComplete?.every(c => c === true) && t.checklistComplete.length > 0
+      );
+      const disciplineScore = tradesWithChecklist.length > 0 
+        ? (perfectDisciplineTrades.length / tradesWithChecklist.length) * 100 
+        : 100;
       let currentEquity = balance;
       let peakEquity = balance;
       let maxDD = 0;
@@ -121,12 +135,13 @@ export class JournalEntity extends Entity<JournalState> {
         const dd = ((peakEquity - currentEquity) / peakEquity) * 100;
         if (dd > maxDD) maxDD = dd;
       }
-      // Survivability Score (Consistency + Risk Adjusted Performance)
-      const survivability = Math.min(100, Math.max(0, 
-        (winRate * 0.3) + 
-        (pf * 15) + 
-        (expectancy > 0 ? 15 : 0) - 
-        (maxDD * 1.5) + 40
+      // Updated Survivability Score with discipline weighting
+      const survivability = Math.min(100, Math.max(0,
+        (winRate * 0.2) +
+        (pf * 10) +
+        (disciplineScore * 0.3) +
+        (expectancy > 0 ? 10 : 0) -
+        (maxDD * 1.5) + 30
       ));
       return {
         strategyId: strat.id,
@@ -136,6 +151,7 @@ export class JournalEntity extends Entity<JournalState> {
         expectancy,
         maxDrawdown: maxDD,
         totalTrades: sTrades.length,
+        disciplineScore,
         survivabilityScore: survivability
       };
     });
@@ -164,7 +180,7 @@ export class JournalEntity extends Entity<JournalState> {
       dailyRisk[day] = (dailyRisk[day] || 0) + t.riskPercent;
     });
     const alerts = this.detectBehavioralViolations(trades, balance, currentEquity);
-    const psychologyScore = Math.max(0, 100 - (alerts.length * 20));
+    const psychologyScore = Math.max(0, 100 - (alerts.length * 15));
     return {
       equity: currentEquity,
       balance,
