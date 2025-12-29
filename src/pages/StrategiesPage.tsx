@@ -31,7 +31,10 @@ export function StrategiesPage() {
   });
   const saveStrat = useMutation({
     mutationFn: (data: any) => {
-      if (editingStrat) return api(`/api/strategies/${editingStrat.id}`, { method: 'PUT', body: JSON.stringify(data) });
+      if (editingStrat) {
+        const { id, createdAt, ...mutableFields } = data;
+        return api(`/api/strategies/${editingStrat.id}`, { method: 'PUT', body: JSON.stringify(mutableFields) });
+      }
       return api('/api/strategies', { method: 'POST', body: JSON.stringify(data) });
     },
     onSuccess: () => {
@@ -128,9 +131,10 @@ export function StrategiesPage() {
               </div>
               <DialogFooter>
                 <Button className="w-full font-black uppercase h-12" onClick={() => saveStrat.mutate({
-                  name: stratName,
-                  description: stratDesc,
-                  checklist: newChecklist
+                  id: editingStrat?.id,
+                  name: stratName || 'Unnamed Strategy',
+                  description: stratDesc || '',
+                  checklist: newChecklist.filter(item => item.trim() !== '')
                 })}>
                   Confirm Architecture
                 </Button>

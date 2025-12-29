@@ -82,4 +82,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     });
     return ok(c, strategy);
   });
+  app.put('/api/strategies/:id', async (c) => {
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    const strategy = new StrategyEntity(c.env, id);
+    if (!(await strategy.exists())) return notFound(c, 'Strategy not found');
+    await strategy.patch(data);
+    return ok(c, await strategy.getState());
+  });
+  app.delete('/api/strategies/:id', async (c) => {
+    const id = c.req.param('id');
+    const success = await StrategyEntity.delete(c.env, id);
+    if (!success) return notFound(c, 'Strategy not found');
+    return ok(c, { id });
+  });
 }

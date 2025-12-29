@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Languages, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 type AppLayoutProps = {
-  children: React.PreactDOMAttributes['children'];
+  children: React.ReactNode;
   container?: boolean;
   className?: string;
   contentClassName?: string;
@@ -40,20 +40,20 @@ export function AppLayout({ children, container = false, className, contentClass
               <div className="hidden lg:block">
                 <TimezoneSelector />
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleExport} 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
                 className="hidden sm:flex gap-2 font-black uppercase text-[10px] tracking-widest bg-primary/5 border-primary/20 hover:bg-primary/10 hover:scale-105 transition-all active:scale-95"
               >
                 <FileText className="h-4 w-4" />
-                {language === 'fa' ? 'گزار�� نهایی' : 'Terminal Report'}
+                {language === 'fa' ? 'گزارش نهایی' : 'Terminal Report'}
               </Button>
               <div className="h-8 w-px bg-border/40 mx-1" />
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => toggleLanguage()} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleLanguage()}
                 className="gap-2 text-[11px] font-black uppercase tracking-widest hover:bg-primary/10 group active:scale-95 transition-all"
               >
                 <Languages className="h-4 w-4 text-primary group-hover:rotate-12 transition-transform" />
