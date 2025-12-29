@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { useForm, type SubmitHandler, useWatch } from 'react-hook-form';
+import { useForm, type SubmitHandler, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ const tradeSchema = z.object({
 type TradeFormData = z.infer<typeof tradeSchema>;
 interface TradeFormProps {
   initialData?: Partial<Trade>;
-  onSubmit: SubmitHandler<TradeFormData>;
+  onSubmit: (data: TradeFormData) => void;
   isPending?: boolean;
 }
 export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) {
@@ -41,7 +41,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
     queryFn: () => api<Strategy[]>('/api/strategies'),
   });
   const { register, handleSubmit, setValue, control } = useForm<TradeFormData>({
-    resolver: zodResolver(tradeSchema),
+    resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeFormData>,
     defaultValues: {
       symbol: initialData?.symbol || searchParams.get('symbol') || '',
       type: (initialData?.type as TradeFormData['type']) || 'LONG',
@@ -81,14 +81,15 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2 col-span-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest">Symbol</Label>
-          <Input {...register('symbol')} placeholder="EURUSD" className="font-mono bg-secondary/50" />
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Symbol Instrument</Label>
+          <Input {...register('symbol')} placeholder="EURUSD" className="font-mono bg-secondary/50 font-black h-12 uppercase" />
         </div>
         <div className="space-y-2 col-span-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest">Strategy Protocol</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Strategy Protocol</Label>
           <Select onValueChange={(v) => setValue('strategyId', v)} value={strategyId}>
-            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Manual" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger className="bg-secondary/50 font-bold h-10"><SelectValue placeholder="Manual Execution" /></SelectTrigger>
+            <SelectContent className="bg-background/95 backdrop-blur-xl">
+              <SelectItem value="">Manual Execution</SelectItem>
               {strategies?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -96,39 +97,46 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         <AnimatePresence>
           {selectedStrategy && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="col-span-2 space-y-3 bg-primary/5 p-4 rounded-xl border border-dashed border-primary/20">
-              <div className="flex items-center gap-2 mb-2"><ShieldCheck className="h-4 w-4 text-primary" /><Label className="text-[10px] font-black uppercase tracking-widest">Checklist</Label></div>
+              <div className="flex items-center gap-2 mb-2"><ShieldCheck className="h-4 w-4 text-primary" /><Label className="text-[10px] font-black uppercase tracking-widest">Protocol Checklist</Label></div>
               {selectedStrategy.checklist.map((item, idx) => (
                 <div key={idx} className="flex items-center space-x-3">
                   <Checkbox checked={checklistComplete[idx] || false} onCheckedChange={(c) => {
-                    const n = [...checklistComplete]; 
-                    n[idx] = !!c; 
+                    const n = [...checklistComplete];
+                    n[idx] = !!c;
                     setValue('checklistComplete', n);
                   }} />
-                  <span className="text-xs font-bold">{item}</span>
+                  <span className="text-xs font-bold text-foreground/80">{item}</span>
                 </div>
               ))}
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Type</Label>
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</Label>
           <Select onValueChange={(v: any) => setValue('type', v)} value={type}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-10 font-bold"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="LONG">Long</SelectItem><SelectItem value="SHORT">Short</SelectItem></SelectContent>
           </Select>
         </div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Status</Label>
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
           <Select onValueChange={(v: any) => setValue('status', v)} value={status}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-10 font-bold"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="OPEN">Open</SelectItem><SelectItem value="CLOSED">Closed</SelectItem></SelectContent>
           </Select>
         </div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Lots</Label><Input type="number" step="0.01" {...register('lots')} /></div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Risk %</Label><Input type="number" step="0.1" {...register('riskPercent')} /></div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Entry</Label><Input type="number" step="0.00001" {...register('entryPrice')} /></div>
-        {status === 'CLOSED' && <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest">Exit</Label><Input type="number" step="0.00001" {...register('exitPrice')} /></div>}
+        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lots</Label><Input type="number" step="0.01" {...register('lots')} className="h-10 font-bold" /></div>
+        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Risk %</Label><Input type="number" step="0.1" {...register('riskPercent')} className="h-10 font-bold" /></div>
+        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Entry Price</Label><Input type="number" step="0.00001" {...register('entryPrice')} className="h-10 font-bold" /></div>
+        {status === 'CLOSED' && <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Exit Price</Label><Input type="number" step="0.00001" {...register('exitPrice')} className="h-10 font-bold" /></div>}
       </div>
-      <Textarea {...register('notes')} placeholder="Notes..." className="bg-secondary/50 h-24" />
-      <Button type="submit" className="w-full font-black uppercase h-14" disabled={isPending}>{isPending ? "Syncing..." : "Commit Execution"}</Button>
+      <div className="space-y-2">
+         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Psychological Notes</Label>
+         <Textarea {...register('notes')} placeholder="Mental state, mistakes, confluence points..." className="bg-secondary/50 h-24 font-medium" />
+      </div>
+      <Button type="submit" className="w-full font-black uppercase h-14 shadow-xl shadow-primary/20" disabled={isPending}>
+        {isPending ? "Syncing Terminal..." : "Commit Execution Record"}
+      </Button>
     </form>
   );
 }

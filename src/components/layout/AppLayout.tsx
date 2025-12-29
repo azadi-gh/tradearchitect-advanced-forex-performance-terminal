@@ -1,12 +1,13 @@
 import React from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useDirection, useLanguage, useToggleLanguage } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TimezoneSelector } from "@/components/timezone-selector";
 import { Button } from "@/components/ui/button";
-import { Languages, FileText, Download } from "lucide-react";
+import { Languages, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -34,12 +35,15 @@ export function AppLayout({ children, container = false, className, contentClass
           <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/40 bg-background/60 px-6 backdrop-blur-xl shrink-0 print:hidden">
             <SidebarTrigger className="hover:bg-primary/5 transition-colors" />
             <div className="flex-1" />
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={handleExport} className="gap-2 font-black uppercase text-[10px] tracking-widest bg-primary/5 border-primary/20 hover:bg-primary/10">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="hidden md:block">
+                <TimezoneSelector />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleExport} className="hidden sm:flex gap-2 font-black uppercase text-[10px] tracking-widest bg-primary/5 border-primary/20 hover:bg-primary/10">
                 <FileText className="h-4 w-4" />
                 Terminal Report
               </Button>
-              <div className="h-6 w-px bg-border/50 mx-2" />
+              <div className="h-6 w-px bg-border/50 mx-1 sm:mx-2" />
               <Button variant="ghost" size="sm" onClick={() => toggleLanguage?.()} className="gap-2 text-xs font-black uppercase tracking-widest hover:bg-primary/5">
                 <Languages className="h-4 w-4 text-primary" />
                 {language === 'fa' ? 'EN' : 'FA'}

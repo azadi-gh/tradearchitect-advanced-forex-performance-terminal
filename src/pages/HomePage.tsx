@@ -5,20 +5,21 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit } from 'lucide-react';
+import { SessionTimeline } from '@/components/session-timeline';
+import { TrendingUp, Award, Zap, Activity, AlertTriangle, ShieldCheck, BrainCircuit, Timer } from 'lucide-react';
 import { formatCurrency } from '@/lib/financial-math';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 export function HomePage() {
-  const { data: stats, isLoading } = useQuery<any>({ 
-    queryKey: ['dashboard-stats'], 
-    queryFn: () => api('/api/dashboard/stats') 
+  const { data: stats, isLoading } = useQuery<any>({
+    queryKey: ['dashboard-stats'],
+    queryFn: () => api('/api/dashboard/stats')
   });
-  const { data: insights } = useQuery<any>({ 
-    queryKey: ['insights'], 
-    queryFn: () => api('/api/insights') 
+  const { data: insights } = useQuery<any>({
+    queryKey: ['insights'],
+    queryFn: () => api('/api/insights')
   });
   useEffect(() => {
     if (stats?.alerts?.length > 0) {
@@ -63,12 +64,13 @@ export function HomePage() {
             <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <BrainCircuit className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-sm font-black uppercase tracking-widest text-white">Mistake Analyzer: Behavioral Insights</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-white">Market Intel: Behavioral & Session Audit</CardTitle>
               </div>
-              <Badge variant="outline" className="border-blue-400/30 text-blue-400 text-[9px] uppercase font-black">AI Audit Active</Badge>
+              <Badge variant="outline" className="border-blue-400/30 text-blue-400 text-[9px] uppercase font-black">Active Monitoring</Badge>
             </CardHeader>
-            <CardContent className="py-6 min-h-[160px]">
-              <div className="grid gap-4">
+            <CardContent className="py-6 space-y-8">
+              <SessionTimeline />
+              <div className="grid gap-4 pt-4 border-t border-white/5">
                 <AnimatePresence mode="popLayout">
                   {insights?.length > 0 ? insights.map((insight: any, i: number) => (
                     <motion.div key={i} initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className={cn(
@@ -83,16 +85,16 @@ export function HomePage() {
                     </motion.div>
                   )) : (
                     <div className="text-center py-6 text-slate-500 font-bold uppercase text-[10px]">
-                      {insights ? "Processing trade history..." : "Establishing behavioral baseline..."}
+                      Establishing behavioral baseline...
                     </div>
                   )}
                 </AnimatePresence>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-primary/20 bg-card/40 backdrop-blur-xl group transition-all duration-500">
+          <Card className="border-2 border-primary/20 bg-card/40 backdrop-blur-xl group transition-all duration-500 flex flex-col">
             <CardHeader className="pb-3 border-b"><CardTitle className="text-xs font-black uppercase">Protocol Discipline</CardTitle></CardHeader>
-            <CardContent className="pt-8 flex flex-col items-center gap-6">
+            <CardContent className="flex-1 pt-8 flex flex-col items-center justify-center gap-6">
               <div className="text-6xl font-black text-foreground tabular-nums tracking-tighter">{(stats?.psychologyScore ?? 100)}</div>
               <div className="w-full h-4 bg-secondary/50 rounded-full overflow-hidden p-1 border border-border/50">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${stats?.psychologyScore ?? 100}%` }} className={cn(
