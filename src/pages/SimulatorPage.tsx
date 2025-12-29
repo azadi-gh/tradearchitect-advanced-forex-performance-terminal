@@ -21,20 +21,16 @@ export function SimulatorPage() {
   const results = useMemo(() => runMonteCarlo(params), [params]);
   const chartData = useMemo(() => {
     if (!results || !results.median || !results.bestCase || !results.worstCase) return [];
-
     let lastMedian = params.startBalance;
     let lastBest = params.startBalance;
     let lastWorst = params.startBalance;
-
     return results.median.map((_, i) => {
       const medianVal = Number.isFinite(results.median[i]) ? results.median[i] : lastMedian;
       const bestVal = Number.isFinite(results.bestCase[i]) ? results.bestCase[i] : lastBest;
       const worstVal = Number.isFinite(results.worstCase[i]) ? results.worstCase[i] : lastWorst;
-
       lastMedian = medianVal;
       lastBest = bestVal;
       lastWorst = worstVal;
-
       return {
         trade: i,
         median: medianVal,
@@ -45,7 +41,7 @@ export function SimulatorPage() {
   }, [results, params]);
   return (
     <AppLayout container>
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-8"
@@ -142,8 +138,10 @@ export function SimulatorPage() {
                   <div className="text-xs font-bold uppercase text-muted-foreground">Expected Median</div>
                   <div className="text-xl font-black">
                     {(() => {
-                      const finalMedian = results?.median?.at?.(-1) ?? params.startBalance;
-                      return Number.isFinite(finalMedian) ? formatCurrency(finalMedian) : '---';
+                      const finalMedian = results?.median && results.median.length > 0 
+                        ? results.median[results.median.length - 1] 
+                        : params.startBalance;
+                      return Number.isFinite(finalMedian) ? formatCurrency(finalMedian) : formatCurrency(params.startBalance);
                     })()}
                   </div>
                 </div>
@@ -189,12 +187,14 @@ export function SimulatorPage() {
                 <CardContent>
                   <div className="text-3xl font-black text-emerald-600">
                     {(() => {
-                      const finalBalance = results?.median?.at?.(-1) ?? params.startBalance;
+                      const finalBalance = results?.median && results.median.length > 0
+                        ? results.median[results.median.length - 1]
+                        : params.startBalance;
                       if (Number.isFinite(finalBalance)) {
                         const growth = ((finalBalance - params.startBalance) / params.startBalance) * 100;
                         return growth.toFixed(1);
                       }
-                      return "0";
+                      return "0.0";
                     })()}%
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">Average projected return</p>

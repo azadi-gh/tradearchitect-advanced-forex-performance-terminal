@@ -122,10 +122,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       watchlist,
       strategies: strategies.items
     };
-    // Storing in a special GlobalDurableObject entry for snapshots
     const doId = c.env.GlobalDurableObject.idFromName(`system:snapshot:${USER_ID}`);
     const stub = c.env.GlobalDurableObject.get(doId);
-    await stub.casPut(`system:snapshot`, 0, snapshot);
+    // Fetch current document to get current version for CAS
+    const current = await stub.getDoc<any>(`system:snapshot`);
+    const version = current?.v ?? 0;
+    await stub.casPut(`system:snapshot`, version, snapshot);
     return ok(c, { timestamp: snapshot.timestamp });
   });
   app.get('/api/system/status', async (c) => {
@@ -133,12 +135,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const strategies = await StrategyEntity.list(c.env);
     const doId = c.env.GlobalDurableObject.idFromName(`system:snapshot:${USER_ID}`);
     const stub = c.env.GlobalDurableObject.get(doId);
-    const lastSnapshotDoc = await stub.getDoc(`system:snapshot`);
+    // Explicit generic type <any> to resolve TS2339 'Property data does not exist on type never'
+    const lastSnapshotDoc = await stub.getDoc<any>(`system:snapshot`);
     return ok(c, {
-      lastSnapshot: lastSnapshotDoc ? (lastSnapshotDoc.data as any).timestamp : null,
+      lastSnapshot: lastSnapshotDoc ? lastSnapshotDoc.data.timestamp : null,
       counts: {
-        trades: journal.trades.length,
-        strategies: strategies.items.length
+        trades: journal?.trades?.length ?? 0,
+        strategies: strategies?.items?.length ?? 0
       },
       healthy: true
     });
