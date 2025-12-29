@@ -24,7 +24,7 @@ export function AppLayout({ children, container = false, className, contentClass
     window.print();
   };
   return (
-    <div dir={direction || 'ltr'} className="min-h-screen bg-background relative overflow-hidden selection:bg-primary/20">
+    <div dir={direction} className="min-h-screen bg-background relative overflow-hidden selection:bg-primary/20">
       <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05] print:hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#3b82f6_0%,transparent_50%)] animate-float" />
         <div className="absolute inset-0 bg-[grid_32px_32px_rgba(0,0,0,0.1)] dark:bg-[grid_32px_32px_rgba(255,255,255,0.05)]" />
@@ -44,7 +44,7 @@ export function AppLayout({ children, container = false, className, contentClass
                 Terminal Report
               </Button>
               <div className="h-6 w-px bg-border/50 mx-1 sm:mx-2" />
-              <Button variant="ghost" size="sm" onClick={() => toggleLanguage?.()} className="gap-2 text-xs font-black uppercase tracking-widest hover:bg-primary/5">
+              <Button variant="ghost" size="sm" onClick={() => toggleLanguage()} className="gap-2 text-xs font-black uppercase tracking-widest hover:bg-primary/5">
                 <Languages className="h-4 w-4 text-primary" />
                 {language === 'fa' ? 'EN' : 'FA'}
               </Button>

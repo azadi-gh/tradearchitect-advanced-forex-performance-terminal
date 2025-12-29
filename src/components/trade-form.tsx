@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { useForm, type SubmitHandler, useWatch, type Resolver } from 'react-hook-form';
+import { useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -64,10 +64,19 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
   const type = useWatch({ control, name: 'type' });
   const strategyId = useWatch({ control, name: 'strategyId' });
   const checklistComplete = useWatch({ control, name: 'checklistComplete' }) || [];
-  const selectedStrategy = useMemo(() => strategies?.find(s => s.id === strategyId), [strategies, strategyId]);
+  const selectedStrategy = useMemo(() => 
+    strategies?.find(s => s.id === strategyId), 
+    [strategies, strategyId]
+  );
+  // Sync checklist items when strategy changes to avoid render mismatches
   useEffect(() => {
-    if (selectedStrategy && checklistComplete.length === 0) {
-      setValue('checklistComplete', new Array(selectedStrategy.checklist.length).fill(false));
+    if (selectedStrategy) {
+      const expectedLength = selectedStrategy.checklist.length;
+      if (checklistComplete.length !== expectedLength) {
+        setValue('checklistComplete', new Array(expectedLength).fill(false));
+      }
+    } else if (checklistComplete.length > 0) {
+      setValue('checklistComplete', []);
     }
   }, [selectedStrategy, setValue, checklistComplete.length]);
   useEffect(() => {
@@ -89,7 +98,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
           <Select onValueChange={(v) => setValue('strategyId', v)} value={strategyId}>
             <SelectTrigger className="bg-secondary/50 font-bold h-10"><SelectValue placeholder="Manual Execution" /></SelectTrigger>
             <SelectContent className="bg-background/95 backdrop-blur-xl">
-              <SelectItem value="">Manual Execution</SelectItem>
+              <SelectItem value="manual">Manual Execution</SelectItem>
               {strategies?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -100,7 +109,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
               <div className="flex items-center gap-2 mb-2"><ShieldCheck className="h-4 w-4 text-primary" /><Label className="text-[10px] font-black uppercase tracking-widest">Protocol Checklist</Label></div>
               {selectedStrategy.checklist.map((item, idx) => (
                 <div key={idx} className="flex items-center space-x-3">
-                  <Checkbox checked={checklistComplete[idx] || false} onCheckedChange={(c) => {
+                  <Checkbox checked={!!checklistComplete[idx]} onCheckedChange={(c) => {
                     const n = [...checklistComplete];
                     n[idx] = !!c;
                     setValue('checklistComplete', n);

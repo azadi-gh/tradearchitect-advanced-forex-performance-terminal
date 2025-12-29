@@ -32,7 +32,7 @@ export const useAppStore = create<AppState>((set) => ({
   }),
 }));
 /**
- * ZUSTAND ZERO-TOLERANCE SELECTORS
+ * ZUSTAND ZERO-TOLERANCE SELECTORS - ALWAYS PRIMITIVE
  */
 export const useLanguage = () => useAppStore((s) => s.language);
 export const useDirection = () => useAppStore((s) => s.direction);

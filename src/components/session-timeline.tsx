@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useTimezone } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { formatInTimeZone } from "date-fns-tz";
 const SESSIONS = [
   { name: "Asian", start: 19, end: 22, color: "bg-blue-500", glow: "shadow-[0_0_15px_rgba(59,130,246,0.5)]" },
   { name: "London", start: 7, end: 10, color: "bg-amber-500", glow: "shadow-[0_0_15px_rgba(245,158,11,0.5)]" },
@@ -19,7 +18,13 @@ export function SessionTimeline() {
   const currentHourUTC = now.getUTCHours();
   const currentMinuteUTC = now.getUTCMinutes();
   const progressPercent = ((currentHourUTC * 60 + currentMinuteUTC) / 1440) * 100;
-  const localTimeStr = formatInTimeZone(now, timezone, "HH:mm");
+  // Replacement for formatInTimeZone using native Intl
+  const localTimeStr = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: timezone === 'UTC' ? 'UTC' : timezone,
+    hour12: false
+  }).format(now);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
