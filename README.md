@@ -1,6 +1,6 @@
 # Trade Architect
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/azadi-gh/tradearchitect-advanced-forex-performance-terminal)
 
 A full-stack application built on Cloudflare Workers, featuring a modern React frontend with Tailwind CSS and shadcn/ui components. The backend leverages Durable Objects for scalable, stateful entity management (users, chat boards, messages) with indexed listing capabilities. Ideal for real-time collaborative apps like chat systems or trading dashboards.
 
@@ -96,7 +96,7 @@ bunx wrangler@latest deploy
 - Custom domain: Edit `wrangler.jsonc`.
 - Durable Objects auto-migrate via `migrations`.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/azadi-gh/tradearchitect-advanced-forex-performance-terminal)
 
 **Pro Tip**: Use `wrangler tail` for live logs and `wrangler dev --remote` for remote dev.
 
