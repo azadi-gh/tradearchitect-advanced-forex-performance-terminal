@@ -11,19 +11,19 @@ export class StrategyEntity extends IndexedEntity<Strategy> {
     createdAt: 0
   };
   static seedData = [
-    { 
-      id: "s1", 
-      name: "Trend Follower", 
-      description: "Standard trend following strategy", 
+    {
+      id: "s1",
+      name: "Trend Follower",
+      description: "Standard trend following strategy",
       checklist: ["Trend Alignment", "HTF S/R Level", "Volume Confirmation", "2% Risk Check"],
-      createdAt: Date.now() 
+      createdAt: Date.now()
     },
-    { 
-      id: "s2", 
-      name: "Mean Reversion", 
-      description: "Standard mean reversion strategy", 
+    {
+      id: "s2",
+      name: "Mean Reversion",
+      description: "Standard mean reversion strategy",
       checklist: ["RSI Overbought/Sold", "Bollinger Band Touch", "Candlestick Pattern", "Risk/Reward > 2"],
-      createdAt: Date.now() 
+      createdAt: Date.now()
     }
   ];
 }
@@ -68,7 +68,6 @@ export class JournalEntity extends Entity<JournalState> {
     const alerts: string[] = [];
     const sorted = [...trades].sort((a, b) => b.entryTime - a.entryTime);
     const now = Date.now();
-    // 1. Discipline Warning: Check most recent trade for checklist completion
     if (sorted.length > 0) {
       const last = sorted[0];
       if (last.strategyId && last.checklistComplete) {
@@ -78,9 +77,8 @@ export class JournalEntity extends Entity<JournalState> {
         }
       }
     }
-    // 2. Revenge Trading Check
     for (let i = 0; i < sorted.length - 1; i++) {
-      const t1 = sorted[i]; 
+      const t1 = sorted[i];
       const t2 = sorted[i+1];
       if (t2.status === 'CLOSED' && (t2.pnl || 0) < 0) {
         const exitTime = t2.exitTime || t2.entryTime;
@@ -90,18 +88,15 @@ export class JournalEntity extends Entity<JournalState> {
         }
       }
     }
-    // 3. Overtrading Check
     const last24h = sorted.filter(t => t.entryTime > now - 86400000);
     if (last24h.length > 8) alerts.push("High Frequency Alert: Over 8 trades in 24 hours.");
-    // 4. Loss Streak Check
     let losses = 0;
     const closedSorted = sorted.filter(t => t.status === 'CLOSED');
     for (const t of closedSorted) {
       if ((t.pnl || 0) < 0) losses++; else break;
       if (losses >= 4) { alerts.push("Loss Streak Alert: 4+ consecutive losses."); break; }
     }
-    // 5. Drawdown Threshold
-    const ddPercent = ((balance - currentEquity) / balance) * 100;
+    const ddPercent = ((balance - currentEquity) / Math.max(1, balance)) * 100;
     if (ddPercent > 15) alerts.push(`Critical Account Drawdown: ${ddPercent.toFixed(1)}% limit exceeded.`);
     return Array.from(new Set(alerts));
   }
@@ -116,15 +111,14 @@ export class JournalEntity extends Entity<JournalState> {
       const winRate = sTrades.length > 0 ? (wins.length / sTrades.length) * 100 : 0;
       const totalProfit = wins.reduce((acc, t) => acc + (t.pnl || 0), 0);
       const totalLoss = Math.abs(losses.reduce((acc, t) => acc + (t.pnl || 0), 0));
-      const pf = totalLoss === 0 ? (totalProfit > 0 ? 10 : 0) : totalProfit / totalLoss;
+      const pf = totalLoss === 0 ? (totalProfit > 0 ? 99.9 : 0) : totalProfit / totalLoss;
       const expectancy = sTrades.length > 0 ? (totalProfit - totalLoss) / sTrades.length : 0;
-      // Discipline Score calculation
-      const tradesWithChecklist = sTrades.filter(t => t.checklistComplete);
-      const perfectDisciplineTrades = tradesWithChecklist.filter(t => 
-        t.checklistComplete?.every(c => c === true) && t.checklistComplete.length > 0
+      const tradesWithChecklist = sTrades.filter(t => t.checklistComplete && t.checklistComplete.length > 0);
+      const perfectDisciplineTrades = tradesWithChecklist.filter(t =>
+        t.checklistComplete?.every(c => c === true)
       );
-      const disciplineScore = tradesWithChecklist.length > 0 
-        ? (perfectDisciplineTrades.length / tradesWithChecklist.length) * 100 
+      const disciplineScore = tradesWithChecklist.length > 0
+        ? (perfectDisciplineTrades.length / tradesWithChecklist.length) * 100
         : 100;
       let currentEquity = balance;
       let peakEquity = balance;
@@ -132,13 +126,12 @@ export class JournalEntity extends Entity<JournalState> {
       for (const t of sTrades) {
         currentEquity += (t.pnl || 0);
         if (currentEquity > peakEquity) peakEquity = currentEquity;
-        const dd = ((peakEquity - currentEquity) / peakEquity) * 100;
+        const dd = ((peakEquity - currentEquity) / Math.max(1, peakEquity)) * 100;
         if (dd > maxDD) maxDD = dd;
       }
-      // Updated Survivability Score with discipline weighting
       const survivability = Math.min(100, Math.max(0,
         (winRate * 0.2) +
-        (pf * 10) +
+        (Math.min(pf, 10) * 10) +
         (disciplineScore * 0.3) +
         (expectancy > 0 ? 10 : 0) -
         (maxDD * 1.5) + 30
@@ -152,12 +145,14 @@ export class JournalEntity extends Entity<JournalState> {
         maxDrawdown: maxDD,
         totalTrades: sTrades.length,
         disciplineScore,
-        survivabilityScore: survivability
+        survivabilityScore: isNaN(survivability) ? 0 : survivability
       };
     });
   }
   async getStats(): Promise<FinancialSnapshot & { psychologyScore: number; alerts: string[]; dailyRisk: Record<string, number> }> {
-    const { trades, balance } = await this.getState();
+    const state = await this.getState();
+    const trades = state.trades || [];
+    const balance = state.balance || 10000;
     const closedTrades = trades.filter(t => t.status === 'CLOSED');
     let currentEquity = balance;
     let peakEquity = balance;
@@ -166,7 +161,7 @@ export class JournalEntity extends Entity<JournalState> {
     for (const t of sortedTrades) {
       currentEquity += (t.pnl || 0);
       if (currentEquity > peakEquity) peakEquity = currentEquity;
-      const dd = ((peakEquity - currentEquity) / peakEquity) * 100;
+      const dd = ((peakEquity - currentEquity) / Math.max(1, peakEquity)) * 100;
       if (dd > maxDrawdown) maxDrawdown = dd;
     }
     const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0);
@@ -176,8 +171,9 @@ export class JournalEntity extends Entity<JournalState> {
     const profitFactor = grossLoss === 0 ? (grossProfit > 0 ? 99.9 : 0) : grossProfit / grossLoss;
     const dailyRisk: Record<string, number> = {};
     trades.forEach(t => {
-      const day = new Date(t.entryTime).toISOString().split('T')[0];
-      dailyRisk[day] = (dailyRisk[day] || 0) + t.riskPercent;
+      const ts = t.entryTime || Date.now();
+      const day = new Date(ts).toISOString().split('T')[0];
+      dailyRisk[day] = (dailyRisk[day] || 0) + (t.riskPercent || 0);
     });
     const alerts = this.detectBehavioralViolations(trades, balance, currentEquity);
     const psychologyScore = Math.max(0, 100 - (alerts.length * 15));

@@ -18,11 +18,11 @@ const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.coerce.number().positive(),
-  exitPrice: z.coerce.number().optional(),
-  lots: z.coerce.number().positive().max(100),
-  riskPercent: z.coerce.number().min(0).max(100),
-  pnl: z.coerce.number().optional(),
+  entryPrice: z.preprocess((val) => Number(val), z.number().positive()),
+  exitPrice: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
+  lots: z.preprocess((val) => Number(val), z.number().positive().max(100)),
+  riskPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)),
+  pnl: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
   strategyId: z.string().optional(),
   checklistComplete: z.array(z.boolean()).optional(),
   notes: z.string().optional(),
@@ -62,7 +62,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
   const type = useWatch({ control, name: 'type' });
   const strategyId = useWatch({ control, name: 'strategyId' });
   const checklistComplete = useWatch({ control, name: 'checklistComplete' }) || [];
-  const selectedStrategy = useMemo(() => 
+  const selectedStrategy = useMemo(() =>
     strategies?.find(s => s.id === strategyId),
     [strategies, strategyId]
   );
@@ -70,6 +70,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
     if (selectedStrategy && (!checklistComplete || checklistComplete.length !== selectedStrategy.checklist.length)) {
       setValue('checklistComplete', new Array(selectedStrategy.checklist.length).fill(false));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStrategy, setValue]);
   useEffect(() => {
     if (status === 'CLOSED' && entryPrice && exitPrice && lots && symbol) {
@@ -92,7 +93,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         </div>
         <div className="space-y-2 col-span-2 sm:col-span-1">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Strategy</Label>
-          <Select onValueChange={(v) => setValue('strategyId', v)} defaultValue={strategyId}>
+          <Select onValueChange={(v) => setValue('strategyId', v)} value={strategyId}>
             <SelectTrigger className="bg-secondary/50 border-input/50"><SelectValue placeholder="Protocol" /></SelectTrigger>
             <SelectContent>
               {strategies?.map(s => (
@@ -103,7 +104,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         </div>
         <AnimatePresence>
           {selectedStrategy && selectedStrategy.checklist.length > 0 && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -116,7 +117,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
               <div className="grid gap-3">
                 {selectedStrategy.checklist.map((item, idx) => (
                   <div key={idx} className="flex items-center space-x-3">
-                    <Checkbox 
+                    <Checkbox
                       id={`check-${idx}`}
                       checked={checklistComplete[idx] || false}
                       onCheckedChange={(checked) => {
@@ -125,7 +126,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
                         setValue('checklistComplete', next);
                       }}
                     />
-                    <label 
+                    <label
                       htmlFor={`check-${idx}`}
                       className="text-xs font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                     >
@@ -139,7 +140,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         </AnimatePresence>
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</Label>
-          <Select onValueChange={(v) => setValue('type', v as any)} defaultValue={type}>
+          <Select onValueChange={(v) => setValue('type', v as any)} value={type}>
             <SelectTrigger className="bg-secondary/50 border-input/50"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="LONG">Long</SelectItem>
@@ -149,7 +150,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         </div>
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
-          <Select onValueChange={(v) => setValue('status', v as any)} defaultValue={status}>
+          <Select onValueChange={(v) => setValue('status', v as any)} value={status}>
             <SelectTrigger className="bg-secondary/50 border-input/50"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="OPEN">Open</SelectItem>

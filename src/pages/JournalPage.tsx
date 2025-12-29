@@ -4,8 +4,9 @@ import { api } from '@/lib/api-client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/financial-math';
 import { TradeForm } from '@/components/trade-form';
 import type { Trade } from '@shared/types';
@@ -13,7 +14,7 @@ import { format } from 'date-fns';
 import { Plus, MoreVertical, Edit, Trash2, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 export function JournalPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -75,6 +76,9 @@ export function JournalPage() {
                   <div className="h-8 w-2 bg-primary rounded-full" />
                   {editingTrade ? "Modify Terminal Record" : "New Terminal Record"}
                 </SheetTitle>
+                <SheetDescription>
+                  Enter the specific parameters for this execution to sync with the terminal state.
+                </SheetDescription>
               </SheetHeader>
               <TradeForm
                 initialData={editingTrade || {}}
@@ -91,7 +95,6 @@ export function JournalPage() {
           </Sheet>
         </div>
         <div className="rounded-3xl border-2 border-border/50 bg-card/40 backdrop-blur-xl shadow-soft overflow-hidden">
-          {/* Desktop Table */}
           <div className="hidden lg:block">
             <Table>
               <TableHeader className="bg-muted/30">
@@ -185,12 +188,11 @@ export function JournalPage() {
               </TableBody>
             </Table>
           </div>
-          {/* Mobile Card View */}
           <div className="lg:hidden p-4 space-y-4">
             {isLoading ? (
                <div className="py-20 text-center animate-pulse font-black text-muted-foreground">SYNCING...</div>
             ) : trades?.map(trade => (
-              <motion.div 
+              <motion.div
                 key={trade.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

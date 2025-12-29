@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useDirection, useLanguage, useToggleLanguage } from "@/lib/store";
@@ -17,6 +18,7 @@ export function AppLayout({ children, container = false, className, contentClass
   const direction = useDirection();
   const language = useLanguage();
   const toggleLanguage = useToggleLanguage();
+  const location = useLocation();
   return (
     <div dir={direction || 'ltr'} className="min-h-screen bg-background relative overflow-hidden">
       {/* Animated Background Pattern */}
