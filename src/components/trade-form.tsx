@@ -9,18 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { calculatePips } from '@/lib/financial-math';
 import type { Trade, Strategy } from '@shared/types';
 const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
   entryPrice: z.coerce.number().positive("Entry price must be positive"),
-  exitPrice: z.coerce.number().optional().nullable(),
+  exitPrice: z.coerce.number().optional(),
   lots: z.coerce.number().positive().max(100, "Maximum 100 lots allowed"),
   riskPercent: z.coerce.number().min(0).max(100),
-  pnl: z.coerce.number().optional().nullable(),
-  strategyId: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  pnl: z.coerce.number().optional(),
+  strategyId: z.string().optional(),
+  notes: z.string().optional(),
 });
 type TradeFormData = z.infer<typeof tradeSchema>;
 interface TradeFormProps {
@@ -40,30 +41,31 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
       type: initialData?.type || 'LONG',
       status: initialData?.status || 'OPEN',
       entryPrice: initialData?.entryPrice || 0,
-      exitPrice: initialData?.exitPrice ?? null,
+      exitPrice: initialData?.exitPrice || undefined,
       lots: initialData?.lots || 0.1,
       riskPercent: initialData?.riskPercent || 1,
-      pnl: initialData?.pnl ?? null,
-      strategyId: initialData?.strategyId ?? '',
+      pnl: initialData?.pnl || undefined,
+      strategyId: initialData?.strategyId || '',
       notes: initialData?.notes || '',
     },
   });
   const status = watch('status');
+  const symbol = watch('symbol');
   const entryPrice = watch('entryPrice');
   const exitPrice = watch('exitPrice');
   const lots = watch('lots');
   const type = watch('type');
   // Auto-calculate PnL when conditions are met
   useEffect(() => {
-    if (status === 'CLOSED' && entryPrice && exitPrice && lots) {
+    if (status === 'CLOSED' && entryPrice && exitPrice && lots && symbol) {
       const diff = type === 'LONG' ? exitPrice - entryPrice : entryPrice - exitPrice;
-      const pips = diff / 0.0001; // Approximate major pair pip scale
+      const pips = calculatePips(diff, symbol);
       const calculatedPnl = pips * 10 * lots;
       setValue('pnl', Number(calculatedPnl.toFixed(2)));
     }
-  }, [status, entryPrice, exitPrice, lots, type, setValue]);
+  }, [status, entryPrice, exitPrice, lots, type, symbol, setValue]);
   return (
-    <form onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase">Symbol</Label>
@@ -120,6 +122,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase">Entry Price</Label>
           <Input type="number" step="0.00001" {...register('entryPrice')} className="font-mono" />
+          {errors.entryPrice && <p className="text-xs text-destructive">{errors.entryPrice.message}</p>}
         </div>
         {status === 'CLOSED' && (
           <>

@@ -3,10 +3,9 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { calculatePositionSize, calculateKelly, calculateBreakevenWinrate, formatCurrency } from '@/lib/financial-math';
-import { Calculator, Target, TrendingUp, AlertCircle, BarChart3 } from 'lucide-react';
+import { calculatePositionSize, calculateKelly, calculateBreakevenWinrate, formatCurrency, getForexPipSize, calculatePips } from '@/lib/financial-math';
+import { Calculator, Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 export function RiskLabPage() {
   // Position Sizing State
@@ -23,27 +22,30 @@ export function RiskLabPage() {
   const [retSL, setRetSL] = useState(1.08300);
   const [retTP, setRetTP] = useState(1.08900);
   const [retLots, setRetLots] = useState(1.0);
-  const recommendedLots = useMemo(() => 
-    calculatePositionSize(psBalance, psRisk, psSL, psSymbol), 
+  const recommendedLots = useMemo(() =>
+    calculatePositionSize(psBalance, psRisk, psSL, psSymbol),
     [psBalance, psRisk, psSL, psSymbol]
   );
-  const kellyResult = useMemo(() => 
-    calculateKelly(kWinRate, kAvgWin, kAvgLoss), 
+  const kellyResult = useMemo(() =>
+    calculateKelly(kWinRate, kAvgWin, kAvgLoss),
     [kWinRate, kAvgWin, kAvgLoss]
   );
   const returnStats = useMemo(() => {
     const riskPrice = Math.abs(retEntry - retSL);
     const rewardPrice = Math.abs(retTP - retEntry);
-    const rr = riskPrice > 0 ? rewardPrice / riskPrice : 0;
+    // Safety check for RR
+    const rr = riskPrice > 1e-9 ? rewardPrice / riskPrice : 0;
     const pipVal = 10; // Standard lot pip value
-    const riskCash = (riskPrice / 0.0001) * pipVal * retLots;
-    const rewardCash = (rewardPrice / 0.0001) * pipVal * retLots;
+    const riskPips = calculatePips(riskPrice, psSymbol);
+    const rewardPips = calculatePips(rewardPrice, psSymbol);
+    const riskCash = riskPips * pipVal * retLots;
+    const rewardCash = rewardPips * pipVal * retLots;
     const beWin = calculateBreakevenWinrate(rr);
     return { rr, riskCash, rewardCash, beWin };
-  }, [retEntry, retSL, retTP, retLots]);
+  }, [retEntry, retSL, retTP, retLots, psSymbol]);
   const scenarioData = [
-    { name: 'Loss', value: -returnStats.riskCash },
-    { name: 'Target', value: returnStats.rewardCash },
+    { name: 'Risk / Loss', value: -returnStats.riskCash },
+    { name: 'Target / Profit', value: returnStats.rewardCash },
   ];
   return (
     <AppLayout container>
@@ -64,11 +66,11 @@ export function RiskLabPage() {
             <CardContent className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Balance</Label>
+                  <Label className="text-xs uppercase font-bold text-muted-foreground">Account Balance</Label>
                   <Input type="number" value={psBalance} onChange={e => setPsBalance(Number(e.target.value))} className="font-mono" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Symbol</Label>
+                  <Label className="text-xs uppercase font-bold text-muted-foreground">Asset Symbol</Label>
                   <Input value={psSymbol} onChange={e => setPsSymbol(e.target.value.toUpperCase())} className="font-mono" />
                 </div>
               </div>
@@ -80,7 +82,7 @@ export function RiskLabPage() {
                 <Slider value={[psRisk]} onValueChange={([v]) => setPsRisk(v)} max={10} step={0.1} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs uppercase font-bold text-muted-foreground">Stop Loss (Pips)</Label>
+                <Label className="text-xs uppercase font-bold text-muted-foreground">Stop Loss (Distance in Pips)</Label>
                 <Input type="number" value={psSL} onChange={e => setPsSL(Number(e.target.value))} className="font-mono" />
               </div>
               <div className="bg-primary/5 border border-primary/10 rounded-xl p-6 text-center">
@@ -141,17 +143,17 @@ export function RiskLabPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Entry Price</Label>
-                      <Input type="number" value={retEntry} step="0.0001" onChange={e => setRetEntry(Number(e.target.value))} className="font-mono text-sm h-8" />
+                      <Input type="number" value={retEntry} step="0.00001" onChange={e => setRetEntry(Number(e.target.value))} className="font-mono text-sm h-8" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Stop Loss</Label>
-                      <Input type="number" value={retSL} step="0.0001" onChange={e => setRetSL(Number(e.target.value))} className="font-mono text-sm h-8" />
+                      <Input type="number" value={retSL} step="0.00001" onChange={e => setRetSL(Number(e.target.value))} className="font-mono text-sm h-8" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Take Profit</Label>
-                      <Input type="number" value={retTP} step="0.0001" onChange={e => setRetTP(Number(e.target.value))} className="font-mono text-sm h-8" />
+                      <Input type="number" value={retTP} step="0.00001" onChange={e => setRetTP(Number(e.target.value))} className="font-mono text-sm h-8" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Lot Size</Label>
@@ -183,10 +185,10 @@ export function RiskLabPage() {
                     </div>
                     <div className="h-40 w-full mt-4">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={scenarioData} layout="vertical" margin={{ left: -20 }}>
+                        <BarChart data={scenarioData} layout="vertical" margin={{ left: 0, right: 20 }}>
                           <XAxis type="number" hide />
                           <YAxis type="category" dataKey="name" hide />
-                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px' }} />
+                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }} />
                           <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                             {scenarioData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.value < 0 ? '#ef4444' : '#10b981'} />
@@ -198,7 +200,7 @@ export function RiskLabPage() {
                   </div>
                   <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] font-bold text-blue-600 uppercase">
                     <AlertCircle className="h-3 w-3" />
-                    Projection assumes standard lot valuation (10$/pip)
+                    Projection assumes standard lot valuation for {psSymbol}
                   </div>
                 </div>
               </div>
