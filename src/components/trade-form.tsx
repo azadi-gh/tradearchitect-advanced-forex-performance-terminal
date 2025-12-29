@@ -16,16 +16,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 const tradeSchema = z.object({
+  id: z.string().optional(),
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.coerce.number().positive(),
-  exitPrice: z.coerce.number().optional(),
-  lots: z.coerce.number().positive().max(100),
-  riskPercent: z.coerce.number().min(0).max(100),
-  pnl: z.coerce.number().optional(),
+  entryPrice: z.coerce.number().positive().finite(),
+  exitPrice: z.coerce.number().finite().optional(),
+  entryTime: z.number().optional(),
+  exitTime: z.number().optional(),
+  lots: z.coerce.number().positive().max(100).finite(),
+  riskPercent: z.coerce.number().min(0).max(100).finite(),
+  pnl: z.coerce.number().finite().optional(),
+  stopLoss: z.number().optional(),
+  takeProfit: z.number().optional(),
   strategyId: z.string().optional(),
   checklistComplete: z.array(z.boolean()).optional(),
+  tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
 });
 type TradeFormData = z.infer<typeof tradeSchema>;
@@ -46,7 +52,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
       symbol: initialData?.symbol || searchParams.get('symbol') || '',
       type: (initialData?.type as TradeFormData['type']) || 'LONG',
       status: (initialData?.status as TradeFormData['status']) || 'OPEN',
-      entryPrice: initialData?.entryPrice || 0,
+      entryPrice: initialData?.entryPrice,
       exitPrice: initialData?.exitPrice,
       lots: initialData?.lots || 0.1,
       riskPercent: initialData?.riskPercent || 1,
@@ -78,12 +84,13 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
     } else if (checklistComplete.length > 0) {
       setValue('checklistComplete', []);
     }
-  }, [selectedStrategy, setValue, checklistComplete.length]);
+  }, [selectedStrategy, setValue]);
   useEffect(() => {
-    if (status === 'CLOSED' && entryPrice && exitPrice && lots && symbol) {
+    if (status === 'CLOSED' && Number.isFinite(entryPrice) && Number.isFinite(exitPrice) && Number.isFinite(lots) && symbol?.trim()) {
       const diff = type === 'LONG' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
       const pips = calculatePips(diff, symbol);
-      setValue('pnl', Number((pips * 10 * lots).toFixed(2)));
+      const computedPnl = pips * 10 * lots;
+      setValue('pnl', Number.isFinite(computedPnl) ? computedPnl : undefined);
     }
   }, [status, entryPrice, exitPrice, lots, type, symbol, setValue]);
   return (

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { Watchlist } from '@shared/types';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,7 @@ export function WatchlistPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [customSymbol, setCustomSymbol] = useState('');
-  const { data: watchlist } = useQuery<any>({
+  const { data: watchlist } = useQuery<Watchlist>({
     queryKey: ['watchlist'],
     queryFn: () => api('/api/watchlist')
   });
@@ -33,8 +34,9 @@ export function WatchlistPage() {
     queryFn: () => api('/api/dashboard/stats')
   });
   const toggleWatchlist = useMutation({
-    mutationFn: (symbol: string) => {
-      const pairs = watchlist?.pairs || [];
+    mutationFn: async (symbol: string) => {
+      const current = await api<Watchlist>('/api/watchlist');
+      const pairs = current.pairs || [];
       const isRemoving = pairs.includes(symbol);
       const nextPairs = isRemoving ? pairs.filter((p: string) => p !== symbol) : [...pairs, symbol];
       return api('/api/watchlist', { method: 'PUT', body: JSON.stringify({ pairs: nextPairs }) });
@@ -90,9 +92,9 @@ export function WatchlistPage() {
               <CardContent className="p-0">
                 <div className="p-4 border-b">
                    <div className="flex gap-2">
-                     <Input 
-                       placeholder="ADD SYMBOL..." 
-                       className="h-9 text-[10px] font-black uppercase tracking-widest bg-secondary/30" 
+                     <Input
+                       placeholder="ADD SYMBOL..."
+                       className="h-9 text-[10px] font-black uppercase tracking-widest bg-secondary/30"
                        value={customSymbol}
                        onChange={e => setCustomSymbol(e.target.value)}
                        onKeyDown={e => e.key === 'Enter' && handleAddCustom()}
