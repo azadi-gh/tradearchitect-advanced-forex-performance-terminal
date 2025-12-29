@@ -1,4 +1,4 @@
-import { IndexedEntity, Entity } from "./core-utils";
+import { IndexedEntity, Entity, Env } from "./core-utils";
 import type { Trade, Strategy, FinancialSnapshot } from "@shared/types";
 export class StrategyEntity extends IndexedEntity<Strategy> {
   static readonly entityName = "strategy";
@@ -61,59 +61,80 @@ export class JournalEntity extends Entity<JournalState> {
     });
     return existed;
   }
-  private detectBehavioralViolations(trades: Trade[], currentDrawdown: number): string[] {
+  private detectBehavioralViolations(trades: Trade[], balance: number, currentEquity: number): string[] {
     const alerts: string[] = [];
     const sorted = [...trades].sort((a, b) => b.entryTime - a.entryTime);
-    // 1. Revenge Trading Check
+    const now = Date.now();
+    // 1. Revenge Trading Check: Entry within 1 hour of a closed loss
     for (let i = 0; i < sorted.length - 1; i++) {
-      const t1 = sorted[i];
-      const t2 = sorted[i+1];
-      if ((t2.pnl || 0) < 0 && (t1.entryTime - (t2.exitTime || t2.entryTime)) < 3600000) {
-        alerts.push("Potential Revenge Trade: Entry within 1hr of a loss.");
-        break;
+      const t1 = sorted[i]; // Newer
+      const t2 = sorted[i+1]; // Older
+      if (t2.status === 'CLOSED' && (t2.pnl || 0) < 0) {
+        const exitTime = t2.exitTime || t2.entryTime;
+        if ((t1.entryTime - exitTime) < 3600000 && (t1.entryTime - exitTime) > 0) {
+          alerts.push("Potential Revenge Trade: Entry within 1hr of a loss.");
+          break;
+        }
       }
     }
-    // 2. Overtrading Check
-    const last24h = sorted.filter(t => t.entryTime > Date.now() - 86400000);
-    if (last24h.length > 5) alerts.push("High Frequency Alert: Over 5 trades in 24 hours.");
-    // 3. Loss Streak Check
+    // 2. Overtrading Check: More than 8 trades in 24 hours
+    const last24h = sorted.filter(t => t.entryTime > now - 86400000);
+    if (last24h.length > 8) alerts.push("High Frequency Alert: Over 8 trades in 24 hours.");
+    // 3. Loss Streak Check: 4 consecutive losses
     let losses = 0;
-    for (const t of sorted) {
-      if (t.status !== 'CLOSED') continue;
+    const closedSorted = sorted.filter(t => t.status === 'CLOSED');
+    for (const t of closedSorted) {
       if ((t.pnl || 0) < 0) losses++;
       else break;
-      if (losses >= 3) {
-        alerts.push("Loss Streak Alert: 3 or more consecutive losses.");
+      if (losses >= 4) {
+        alerts.push("Loss Streak Alert: 4 or more consecutive losses.");
         break;
       }
     }
-    // 4. Drawdown Threshold
-    if (currentDrawdown > 10) {
-      alerts.push(`Critical Drawdown: ${currentDrawdown.toFixed(1)}% exceeds safety limit.`);
+    // 4. Drawdown Threshold: 15% from initial balance
+    const ddPercent = ((balance - currentEquity) / balance) * 100;
+    if (ddPercent > 15) {
+      alerts.push(`Critical Account Drawdown: ${ddPercent.toFixed(1)}% limit exceeded.`);
     }
     return Array.from(new Set(alerts));
   }
-  async getStrategyPerformance(env: any): Promise<StrategyPerformance[]> {
-    const { trades } = await this.getState();
+  async getStrategyPerformance(env: Env): Promise<StrategyPerformance[]> {
+    const { trades, balance } = await this.getState();
     const strategies = await StrategyEntity.list(env);
     return strategies.items.map(strat => {
-      const sTrades = trades.filter(t => t.strategyId === strat.id && t.status === 'CLOSED');
+      const sTrades = trades.filter(t => t.strategyId === strat.id && t.status === 'CLOSED')
+                            .sort((a, b) => (a.exitTime || 0) - (b.exitTime || 0));
       const wins = sTrades.filter(t => (t.pnl || 0) > 0);
       const losses = sTrades.filter(t => (t.pnl || 0) < 0);
       const winRate = sTrades.length > 0 ? (wins.length / sTrades.length) * 100 : 0;
       const totalProfit = wins.reduce((acc, t) => acc + (t.pnl || 0), 0);
       const totalLoss = Math.abs(losses.reduce((acc, t) => acc + (t.pnl || 0), 0));
       const pf = totalLoss === 0 ? (totalProfit > 0 ? 10 : 0) : totalProfit / totalLoss;
-      // Survivability calculation (consistency + expectancy)
       const expectancy = sTrades.length > 0 ? (totalProfit - totalLoss) / sTrades.length : 0;
-      const survivability = Math.min(100, Math.max(0, (winRate * 0.4) + (pf * 20) + (expectancy > 0 ? 20 : 0)));
+      // Real-time strategy-specific Max Drawdown
+      let currentEquity = balance;
+      let peakEquity = balance;
+      let maxDD = 0;
+      for (const t of sTrades) {
+        currentEquity += (t.pnl || 0);
+        if (currentEquity > peakEquity) peakEquity = currentEquity;
+        const dd = ((peakEquity - currentEquity) / peakEquity) * 100;
+        if (dd > maxDD) maxDD = dd;
+      }
+      // Survivability Score (Consistency + Risk Adjusted Performance)
+      const survivability = Math.min(100, Math.max(0, 
+        (winRate * 0.3) + 
+        (pf * 15) + 
+        (expectancy > 0 ? 15 : 0) - 
+        (maxDD * 1.5) + 40
+      ));
       return {
         strategyId: strat.id,
         name: strat.name,
         winRate,
         profitFactor: pf,
         expectancy,
-        maxDrawdown: 0, // Simplified for this view
+        maxDrawdown: maxDD,
         totalTrades: sTrades.length,
         survivabilityScore: survivability
       };
@@ -125,7 +146,7 @@ export class JournalEntity extends Entity<JournalState> {
     let currentEquity = balance;
     let peakEquity = balance;
     let maxDrawdown = 0;
-    const sortedTrades = [...closedTrades].sort((a, b) => a.exitTime! - b.exitTime!);
+    const sortedTrades = [...closedTrades].sort((a, b) => (a.exitTime || 0) - (b.exitTime || 0));
     for (const t of sortedTrades) {
       currentEquity += (t.pnl || 0);
       if (currentEquity > peakEquity) peakEquity = currentEquity;
@@ -137,14 +158,13 @@ export class JournalEntity extends Entity<JournalState> {
     const grossProfit = winningTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
     const grossLoss = Math.abs(closedTrades.filter(t => (t.pnl || 0) < 0).reduce((acc, t) => acc + (t.pnl || 0), 0));
     const profitFactor = grossLoss === 0 ? (grossProfit > 0 ? 99.9 : 0) : grossProfit / grossLoss;
-    // Aggregating daily risk
     const dailyRisk: Record<string, number> = {};
     trades.forEach(t => {
       const day = new Date(t.entryTime).toISOString().split('T')[0];
       dailyRisk[day] = (dailyRisk[day] || 0) + t.riskPercent;
     });
-    const alerts = this.detectBehavioralViolations(trades, maxDrawdown);
-    const psychologyScore = Math.max(0, 100 - (alerts.length * 15));
+    const alerts = this.detectBehavioralViolations(trades, balance, currentEquity);
+    const psychologyScore = Math.max(0, 100 - (alerts.length * 20));
     return {
       equity: currentEquity,
       balance,

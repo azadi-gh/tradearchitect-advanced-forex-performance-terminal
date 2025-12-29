@@ -15,18 +15,18 @@ const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.preprocess((val) => Number(val), z.number().positive()),
-  exitPrice: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
-  lots: z.preprocess((val) => Number(val), z.number().positive().max(100)),
-  riskPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)),
-  pnl: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
+  entryPrice: z.coerce.number().positive(),
+  exitPrice: z.coerce.number().optional(),
+  lots: z.coerce.number().positive().max(100),
+  riskPercent: z.coerce.number().min(0).max(100),
+  pnl: z.coerce.number().optional(),
   strategyId: z.string().optional(),
   notes: z.string().optional(),
 });
 type TradeFormData = z.infer<typeof tradeSchema>;
 interface TradeFormProps {
   initialData?: Partial<Trade>;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: TradeFormData) => void;
   isPending?: boolean;
 }
 export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) {
@@ -109,14 +109,17 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase">Lots</Label>
           <Input type="number" step="0.01" {...register('lots')} className="font-mono" />
+          {errors.lots && <p className="text-xs text-destructive">{errors.lots.message}</p>}
         </div>
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase">Risk %</Label>
           <Input type="number" step="0.1" {...register('riskPercent')} className="font-mono" />
+          {errors.riskPercent && <p className="text-xs text-destructive">{errors.riskPercent.message}</p>}
         </div>
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase">Entry Price</Label>
           <Input type="number" step="0.00001" {...register('entryPrice')} className="font-mono" />
+          {errors.entryPrice && <p className="text-xs text-destructive">{errors.entryPrice.message}</p>}
         </div>
         {status === 'CLOSED' && (
           <>
