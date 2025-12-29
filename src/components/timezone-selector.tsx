@@ -1,28 +1,34 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Globe } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTimezone, useSetTimezone } from "@/lib/store";
+import { useTimezone, useSetTimezone, useLanguage, getTimezoneLabel } from "@/lib/store";
 const TIMEZONES = [
-  { label: "UTC (GMT+0)", value: "UTC" },
-  { label: "London (GMT/BST)", value: "Europe/London" },
-  { label: "New York (EST/EDT)", value: "America/New_York" },
-  { label: "Tokyo (JST)", value: "Asia/Tokyo" },
-  { label: "Sydney (AEST/AEDT)", value: "Australia/Sydney" },
+  { value: "UTC" },
+  { value: "Europe/London" },
+  { value: "America/New_York" },
+  { value: "Asia/Tehran" },
+  { value: "Asia/Tokyo" },
+  { value: "Australia/Sydney" },
 ];
 export function TimezoneSelector() {
   const timezone = useTimezone();
   const setTimezone = useSetTimezone();
+  const language = useLanguage();
   return (
     <div className="flex items-center gap-2">
-      <Globe className="h-4 w-4 text-muted-foreground" />
+      <Globe className="h-4 w-4 text-primary animate-pulse" />
       <Select value={timezone} onValueChange={setTimezone}>
-        <SelectTrigger className="h-8 w-[180px] text-[10px] font-black uppercase tracking-widest bg-secondary/50 border-none shadow-none focus:ring-0">
+        <SelectTrigger className="h-9 w-[200px] text-[10px] font-black uppercase tracking-widest bg-secondary/40 border-border/50 backdrop-blur-md shadow-none hover:bg-secondary/60 transition-all">
           <SelectValue placeholder="Select Zone" />
         </SelectTrigger>
-        <SelectContent className="bg-background/95 backdrop-blur-xl border-border">
+        <SelectContent className="bg-background/95 backdrop-blur-xl border-border/50 shadow-glow">
           {TIMEZONES.map((tz) => (
-            <SelectItem key={tz.value} value={tz.value} className="text-[10px] font-bold uppercase tracking-wider">
-              {tz.label}
+            <SelectItem 
+              key={tz.value} 
+              value={tz.value} 
+              className="text-[10px] font-bold uppercase tracking-wider focus:bg-primary/10"
+            >
+              {getTimezoneLabel(tz.value, language)}
             </SelectItem>
           ))}
         </SelectContent>
