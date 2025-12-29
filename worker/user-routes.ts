@@ -1,13 +1,18 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { JournalEntity, StrategyEntity } from "./entities";
-import { ok, bad, isStr, notFound } from './core-utils';
+import { ok, bad, notFound } from './core-utils';
 import type { Trade, Strategy } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   const USER_ID = "default-user";
   app.get('/api/dashboard/stats', async (c) => {
     const journal = new JournalEntity(c.env, USER_ID);
     const stats = await journal.getStats();
+    return ok(c, stats);
+  });
+  app.get('/api/journal/stats/strategies', async (c) => {
+    const journal = new JournalEntity(c.env, USER_ID);
+    const stats = await journal.getStrategyPerformance(c.env);
     return ok(c, stats);
   });
   app.get('/api/journal/trades', async (c) => {

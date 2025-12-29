@@ -1,118 +1,95 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Target, Plus, Zap, TrendingUp } from 'lucide-react';
-import type { Strategy } from '@shared/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Target, Zap, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 export function StrategiesPage() {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const { data: strategies, isLoading } = useQuery<Strategy[]>({
-    queryKey: ['strategies'],
-    queryFn: () => api<Strategy[]>('/api/strategies'),
+  const { data: stats, isLoading } = useQuery<any[]>({
+    queryKey: ['strategy-stats'],
+    queryFn: () => api('/api/journal/stats/strategies'),
   });
-  const createStrategy = useMutation({
-    mutationFn: (data: Partial<Strategy>) => api<Strategy>('/api/strategies', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['strategies'] });
-      setOpen(false);
-    },
-  });
+  const radarData = stats?.map(s => ({
+    subject: s.name,
+    WinRate: s.winRate,
+    PF: s.profitFactor * 10,
+    Expectancy: Math.max(0, s.expectancy * 5),
+    Survivability: s.survivabilityScore,
+    fullMark: 100,
+  })) || [];
   return (
     <AppLayout container>
       <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Strategy Vault</h1>
-            <p className="text-muted-foreground">Manage and compare your trading systems.</p>
-          </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Strategy
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Strategy</DialogTitle>
-              </DialogHeader>
-              <form className="space-y-4 pt-4" onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                createStrategy.mutate({
-                  name: formData.get('name') as string,
-                  description: formData.get('description') as string,
-                });
-              }}>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Strategy Name</label>
-                  <Input name="name" placeholder="e.g. Trend Rider H4" required />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Description</label>
-                  <Textarea name="description" placeholder="Logic and rules..." />
-                </div>
-                <Button type="submit" className="w-full" disabled={createStrategy.isPending}>
-                  {createStrategy.isPending ? "Creating..." : "Save Strategy"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-black tracking-tighter uppercase">Strategy Intelligence</h1>
+          <p className="text-muted-foreground">High-fidelity ranking and comparative analysis of active systems.</p>
         </div>
-        {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map(i => <Card key={i} className="h-48 animate-pulse bg-muted" />)}
-          </div>
-        ) : strategies?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Target className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold">No Strategies Yet</h3>
-            <p className="text-muted-foreground">Define your first trading system to start tracking performance.</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {strategies?.map((strategy) => (
-              <Card key={strategy.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">{strategy.name}</CardTitle>
-                    <Target className="h-4 w-4 text-primary" />
-                  </div>
-                  <CardDescription className="line-clamp-2 mt-1">
-                    {strategy.description || "No description provided."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 pt-4">
-                    <div className="space-y-1">
-                      <p className="text-2xs uppercase text-muted-foreground font-bold">Win Rate</p>
-                      <div className="flex items-center gap-1">
-                        <Zap className="h-3 w-3 text-amber-500" />
-                        <span className="text-sm font-semibold">--%</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-2xs uppercase text-muted-foreground font-bold">Profit Factor</p>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3 text-emerald-500" />
-                        <span className="text-sm font-semibold">0.00</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2 border-2">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold">Strategy Leaderboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>System Name</TableHead>
+                    <TableHead className="text-right">Win Rate</TableHead>
+                    <TableHead className="text-right">PF</TableHead>
+                    <TableHead className="text-right">Expectancy</TableHead>
+                    <TableHead className="text-right">Survivability</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-10">Computing metrics...</TableCell></TableRow>
+                  ) : stats?.map((s) => (
+                    <TableRow key={s.strategyId}>
+                      <TableCell className="font-bold">{s.name}</TableCell>
+                      <TableCell className="text-right font-mono">{s.winRate.toFixed(1)}%</TableCell>
+                      <TableCell className="text-right font-mono">{s.profitFactor.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">${s.expectancy.toFixed(0)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={s.survivabilityScore > 70 ? "default" : s.survivabilityScore > 40 ? "secondary" : "destructive"}>
+                          {s.survivabilityScore.toFixed(0)}%
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card className="border-2 bg-slate-900 text-white">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                <Target className="h-4 w-4 text-emerald-500" />
+                Edge Profile
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                  <PolarGrid stroke="#334155" />
+                  <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={10} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} hide />
+                  <Radar name="Strategy" dataKey="Survivability" stroke="#10b981" fill="#10b981" fillOpacity={0.4} />
+                </RadarChart>
+              </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
+                  <ShieldCheck className="h-3 w-3 text-emerald-500" /> Stable Edge
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
+                  <AlertCircle className="h-3 w-3 text-rose-500" /> High Decay
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AppLayout>
   );
