@@ -14,11 +14,11 @@ const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.coerce.number().positive(),
-  exitPrice: z.coerce.number().optional(),
-  lots: z.coerce.number().positive(),
-  riskPercent: z.coerce.number().min(0).max(100),
-  pnl: z.coerce.number().optional(),
+  entryPrice: z.preprocess((val) => Number(val), z.number().positive()),
+  exitPrice: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
+  lots: z.preprocess((val) => Number(val), z.number().positive().max(100, "Maximum 100 lots allowed")),
+  riskPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)),
+  pnl: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().optional()),
   strategyId: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -50,7 +50,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
   });
   const status = watch('status');
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Symbol</Label>
@@ -98,6 +98,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         <div className="space-y-2">
           <Label>Lots</Label>
           <Input type="number" step="0.01" {...register('lots')} />
+          {errors.lots && <p className="text-xs text-destructive">{errors.lots.message}</p>}
         </div>
         <div className="space-y-2">
           <Label>Risk %</Label>
@@ -106,6 +107,7 @@ export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) 
         <div className="space-y-2">
           <Label>Entry Price</Label>
           <Input type="number" step="0.00001" {...register('entryPrice')} />
+          {errors.entryPrice && <p className="text-xs text-destructive">{errors.entryPrice.message}</p>}
         </div>
         {status === 'CLOSED' && (
           <>

@@ -21,6 +21,7 @@ export const useAppStore = create<AppState>((set) => ({
   }),
 }));
 // Selectors follow ZUSTAND ZERO-TOLERANCE RULE
+// Note: We use functions that call the store to ensure they are used as hooks correctly
 export const useLanguage = () => useAppStore((s) => s.language);
 export const useDirection = () => useAppStore((s) => s.direction);
 export const useToggleLanguage = () => useAppStore((s) => s.toggleLanguage);

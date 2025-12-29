@@ -15,6 +15,7 @@ import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
 import { RiskLabPage } from '@/pages/RiskLabPage'
 import { StrategiesPage } from '@/pages/StrategiesPage'
+import { SimulatorPage } from '@/pages/SimulatorPage'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -38,6 +39,11 @@ const router = createBrowserRouter([
   {
     path: "/risk",
     element: <RiskLabPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/simulator",
+    element: <SimulatorPage />,
     errorElement: <RouteErrorBoundary />,
   },
   {

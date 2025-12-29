@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutDashboard, BookOpen, Calculator, Target, Settings, PlusCircle } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calculator, Target, Settings, PlusCircle, TrendingUp } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,7 @@ export function AppSidebar(): JSX.Element {
     { title: "Dashboard", icon: LayoutDashboard, path: "/" },
     { title: "Journal", icon: BookOpen, path: "/journal" },
     { title: "Risk Lab", icon: Calculator, path: "/risk" },
+    { title: "Growth Sim", icon: TrendingUp, path: "/simulator" },
     { title: "Strategy Vault", icon: Target, path: "/strategies" },
   ];
   return (
@@ -56,7 +57,7 @@ export function AppSidebar(): JSX.Element {
         </Button>
         <div className="mt-4 flex items-center gap-2 px-2 py-1">
           <Settings className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">Phase 2: Execution</span>
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">Phase 3: Intelligence</span>
         </div>
       </SidebarFooter>
     </Sidebar>

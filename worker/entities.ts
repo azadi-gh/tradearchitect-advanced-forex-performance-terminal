@@ -51,11 +51,28 @@ export class JournalEntity extends Entity<JournalState> {
     });
     return existed;
   }
-  async getStats(): Promise<FinancialSnapshot> {
+  private detectBehavioralViolations(trades: Trade[]): string[] {
+    const alerts: string[] = [];
+    const sorted = [...trades].sort((a, b) => b.entryTime - a.entryTime);
+    // Revenge Trading Check (loss followed by trade within 1hr)
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const t1 = sorted[i];
+      const t2 = sorted[i+1];
+      if ((t2.pnl || 0) < 0 && (t1.entryTime - (t2.exitTime || t2.entryTime)) < 3600000) {
+        alerts.push("Potential Revenge Trade detected: Entry too soon after loss.");
+        break;
+      }
+    }
+    // Overtrading Check
+    const last24h = sorted.filter(t => t.entryTime > Date.now() - 86400000);
+    if (last24h.length > 5) alerts.push("High Frequency Alert: Over 5 trades in 24 hours.");
+    return Array.from(new Set(alerts));
+  }
+  async getStats(): Promise<FinancialSnapshot & { psychologyScore: number; alerts: string[] }> {
     const { trades, balance } = await this.getState();
     const closedTrades = trades.filter(t => t.status === 'CLOSED');
-    let peakEquity = balance;
     let currentEquity = balance;
+    let peakEquity = balance;
     let maxDrawdown = 0;
     const sortedTrades = [...closedTrades].sort((a, b) => a.exitTime! - b.exitTime!);
     for (const t of sortedTrades) {
@@ -68,7 +85,9 @@ export class JournalEntity extends Entity<JournalState> {
     const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
     const grossProfit = winningTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
     const grossLoss = Math.abs(closedTrades.filter(t => (t.pnl || 0) < 0).reduce((acc, t) => acc + (t.pnl || 0), 0));
-    const profitFactor = grossLoss === 0 ? (grossProfit > 0 ? 999 : 0) : grossProfit / grossLoss;
+    const profitFactor = grossLoss === 0 ? (grossProfit > 0 ? 99.9 : 0) : grossProfit / grossLoss;
+    const alerts = this.detectBehavioralViolations(trades);
+    const psychologyScore = Math.max(0, 100 - (alerts.length * 20));
     return {
       equity: currentEquity,
       balance,
@@ -77,7 +96,9 @@ export class JournalEntity extends Entity<JournalState> {
       expectancy: closedTrades.length > 0 ? (currentEquity - balance) / closedTrades.length : 0,
       totalTrades: trades.length,
       maxDrawdown,
-      recentTrades: trades.slice(-10).reverse()
+      recentTrades: trades.slice(-10).reverse(),
+      psychologyScore,
+      alerts
     };
   }
 }
