@@ -78,7 +78,8 @@ function updateWranglerJsonc() {
 
 function runSetupCommands() {
     const commands = [
-    "bun install date-fns-tz"
+    "bun install date-fns-tz",
+    "bun install --frozen-lockfile"
 ];
     
     if (commands.length === 0) {
