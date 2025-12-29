@@ -14,11 +14,13 @@ import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
 import { RiskLabPage } from '@/pages/RiskLabPage'
+import { StrategiesPage } from '@/pages/StrategiesPage'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 30000,
     },
   },
 });
@@ -36,6 +38,11 @@ const router = createBrowserRouter([
   {
     path: "/risk",
     element: <RiskLabPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/strategies",
+    element: <StrategiesPage />,
     errorElement: <RouteErrorBoundary />,
   },
 ]);

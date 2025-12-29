@@ -8,9 +8,9 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   language: 'en',
   direction: 'ltr',
-  setLanguage: (lang) => set({ 
-    language: lang, 
-    direction: lang === 'fa' ? 'rtl' : 'ltr' 
+  setLanguage: (lang) => set({
+    language: lang,
+    direction: lang === 'fa' ? 'rtl' : 'ltr'
   }),
   toggleLanguage: () => set((state) => {
     const nextLang = state.language === 'en' ? 'fa' : 'en';
@@ -20,7 +20,7 @@ export const useAppStore = create<AppState>((set) => ({
     };
   }),
 }));
-// Selectors
+// Selectors follow ZUSTAND ZERO-TOLERANCE RULE
 export const useLanguage = () => useAppStore((s) => s.language);
 export const useDirection = () => useAppStore((s) => s.direction);
-export const useToggleLanguage = () => useAppStore((s) => state.toggleLanguage);
+export const useToggleLanguage = () => useAppStore((s) => s.toggleLanguage);

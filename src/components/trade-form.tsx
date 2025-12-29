@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { useForm, useWatch, type Resolver } from 'react-hook-form';
+import React from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -7,31 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { calculatePips } from '@/lib/financial-math';
 import type { Trade, Strategy } from '@shared/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
 const tradeSchema = z.object({
-  id: z.string().optional(),
   symbol: z.string().min(1, "Symbol is required").toUpperCase(),
   type: z.enum(['LONG', 'SHORT']),
   status: z.enum(['OPEN', 'CLOSED', 'CANCELLED']),
-  entryPrice: z.coerce.number().positive().finite(),
-  exitPrice: z.coerce.number().finite().optional(),
-  entryTime: z.number().optional(),
-  exitTime: z.number().optional(),
-  lots: z.coerce.number().positive().max(100).finite(),
-  riskPercent: z.coerce.number().min(0).max(100).finite(),
-  pnl: z.coerce.number().finite().optional(),
-  stopLoss: z.number().optional(),
-  takeProfit: z.number().optional(),
+  entryPrice: z.coerce.number().positive(),
+  exitPrice: z.coerce.number().optional(),
+  lots: z.coerce.number().positive(),
+  riskPercent: z.coerce.number().min(0).max(100),
+  pnl: z.coerce.number().optional(),
   strategyId: z.string().optional(),
-  checklistComplete: z.array(z.boolean()).optional(),
-  tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
 });
 type TradeFormData = z.infer<typeof tradeSchema>;
@@ -41,117 +29,103 @@ interface TradeFormProps {
   isPending?: boolean;
 }
 export function TradeForm({ initialData, onSubmit, isPending }: TradeFormProps) {
-  const [searchParams] = useSearchParams();
   const { data: strategies } = useQuery<Strategy[]>({
     queryKey: ['strategies'],
     queryFn: () => api<Strategy[]>('/api/strategies'),
   });
-  const { register, handleSubmit, setValue, control } = useForm<TradeFormData>({
-    resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeFormData>,
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TradeFormData>({
+    resolver: zodResolver(tradeSchema),
     defaultValues: {
-      symbol: initialData?.symbol || searchParams.get('symbol') || '',
-      type: (initialData?.type as TradeFormData['type']) || 'LONG',
-      status: (initialData?.status as TradeFormData['status']) || 'OPEN',
-      entryPrice: initialData?.entryPrice,
+      symbol: initialData?.symbol || '',
+      type: initialData?.type || 'LONG',
+      status: initialData?.status || 'OPEN',
+      entryPrice: initialData?.entryPrice || 0,
       exitPrice: initialData?.exitPrice,
       lots: initialData?.lots || 0.1,
       riskPercent: initialData?.riskPercent || 1,
       pnl: initialData?.pnl,
-      strategyId: initialData?.strategyId || '',
-      checklistComplete: initialData?.checklistComplete || [],
+      strategyId: initialData?.strategyId,
       notes: initialData?.notes || '',
     },
   });
-  const status = useWatch({ control, name: 'status' });
-  const symbol = useWatch({ control, name: 'symbol' });
-  const entryPrice = useWatch({ control, name: 'entryPrice' });
-  const exitPrice = useWatch({ control, name: 'exitPrice' });
-  const lots = useWatch({ control, name: 'lots' });
-  const type = useWatch({ control, name: 'type' });
-  const strategyId = useWatch({ control, name: 'strategyId' });
-  const checklistComplete = useWatch({ control, name: 'checklistComplete' }) || [];
-  const selectedStrategy = useMemo(() =>
-    strategies?.find(s => s.id === strategyId),
-    [strategies, strategyId]
-  );
-  const checklistLength = checklistComplete.length;
-  useEffect(() => {
-    if (selectedStrategy) {
-      const expectedLength = selectedStrategy.checklist.length;
-      if (checklistLength !== expectedLength) {
-        setValue('checklistComplete', new Array(expectedLength).fill(false));
-      }
-    } else if (checklistLength > 0 && strategyId === 'manual') {
-      setValue('checklistComplete', []);
-    }
-  }, [selectedStrategy, setValue, checklistLength, strategyId]);
-  useEffect(() => {
-    if (status === 'CLOSED' && Number.isFinite(entryPrice) && Number.isFinite(exitPrice) && Number.isFinite(lots) && symbol?.trim()) {
-      const diff = type === 'LONG' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
-      const pips = calculatePips(diff, symbol);
-      const computedPnl = pips * 10 * lots;
-      setValue('pnl', Number.isFinite(computedPnl) ? computedPnl : undefined);
-    }
-  }, [status, entryPrice, exitPrice, lots, type, symbol, setValue]);
+  const status = watch('status');
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2 col-span-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Symbol Instrument</Label>
-          <Input {...register('symbol')} placeholder="EURUSD" className="font-mono bg-secondary/50 font-black h-12 uppercase" />
+        <div className="space-y-2">
+          <Label>Symbol</Label>
+          <Input {...register('symbol')} placeholder="EURUSD" />
+          {errors.symbol && <p className="text-xs text-destructive">{errors.symbol.message}</p>}
         </div>
-        <div className="space-y-2 col-span-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Strategy Protocol</Label>
-          <Select onValueChange={(v) => setValue('strategyId', v)} value={strategyId}>
-            <SelectTrigger className="bg-secondary/50 font-bold h-10"><SelectValue placeholder="Manual Execution" /></SelectTrigger>
-            <SelectContent className="bg-background/95 backdrop-blur-xl">
-              <SelectItem value="manual">Manual Execution</SelectItem>
-              {strategies?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+        <div className="space-y-2">
+          <Label>Type</Label>
+          <Select onValueChange={(v) => setValue('type', v as any)} defaultValue={watch('type')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LONG">Long</SelectItem>
+              <SelectItem value="SHORT">Short</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <AnimatePresence>
-          {selectedStrategy && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="col-span-2 space-y-3 bg-primary/5 p-4 rounded-xl border border-dashed border-primary/20">
-              <div className="flex items-center gap-2 mb-2"><ShieldCheck className="h-4 w-4 text-primary" /><Label className="text-[10px] font-black uppercase tracking-widest">Protocol Checklist</Label></div>
-              {selectedStrategy.checklist.map((item, idx) => (
-                <div key={idx} className="flex items-center space-x-3">
-                  <Checkbox checked={!!checklistComplete[idx]} onCheckedChange={(c) => {
-                    const n = [...checklistComplete];
-                    n[idx] = !!c;
-                    setValue('checklistComplete', n);
-                  }} />
-                  <span className="text-xs font-bold text-foreground/80">{item}</span>
-                </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select onValueChange={(v) => setValue('status', v as any)} defaultValue={watch('status')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="OPEN">Open</SelectItem>
+              <SelectItem value="CLOSED">Closed</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Strategy</Label>
+          <Select onValueChange={(v) => setValue('strategyId', v)} defaultValue={watch('strategyId')}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Strategy" />
+            </SelectTrigger>
+            <SelectContent>
+              {strategies?.map(s => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</Label>
-          <Select onValueChange={(v: any) => setValue('type', v)} value={type}>
-            <SelectTrigger className="h-10 font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="LONG">Long</SelectItem><SelectItem value="SHORT">Short</SelectItem></SelectContent>
+            </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
-          <Select onValueChange={(v: any) => setValue('status', v)} value={status}>
-            <SelectTrigger className="h-10 font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="OPEN">Open</SelectItem><SelectItem value="CLOSED">Closed</SelectItem></SelectContent>
-          </Select>
+          <Label>Lots</Label>
+          <Input type="number" step="0.01" {...register('lots')} />
         </div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lots</Label><Input type="number" step="0.01" {...register('lots')} className="h-10 font-bold" /></div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Risk %</Label><Input type="number" step="0.1" {...register('riskPercent')} className="h-10 font-bold" /></div>
-        <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Entry Price</Label><Input type="number" step="0.00001" {...register('entryPrice')} className="h-10 font-bold" /></div>
-        {status === 'CLOSED' && <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Exit Price</Label><Input type="number" step="0.00001" {...register('exitPrice')} className="h-10 font-bold" /></div>}
+        <div className="space-y-2">
+          <Label>Risk %</Label>
+          <Input type="number" step="0.1" {...register('riskPercent')} />
+        </div>
+        <div className="space-y-2">
+          <Label>Entry Price</Label>
+          <Input type="number" step="0.00001" {...register('entryPrice')} />
+        </div>
+        {status === 'CLOSED' && (
+          <>
+            <div className="space-y-2">
+              <Label>Exit Price</Label>
+              <Input type="number" step="0.00001" {...register('exitPrice')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Profit/Loss ($)</Label>
+              <Input type="number" step="0.01" {...register('pnl')} />
+            </div>
+          </>
+        )}
       </div>
       <div className="space-y-2">
-         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Psychological Notes</Label>
-         <Textarea {...register('notes')} placeholder="Mental state, mistakes, confluence points..." className="bg-secondary/50 h-24 font-medium" />
+        <Label>Notes</Label>
+        <Textarea {...register('notes')} placeholder="Trade rationale..." />
       </div>
-      <Button type="submit" className="w-full font-black uppercase h-14 shadow-xl shadow-primary/20" disabled={isPending}>
-        {isPending ? "Syncing Terminal..." : "Commit Execution Record"}
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Processing..." : initialData?.id ? "Update Trade" : "Log Trade"}
       </Button>
     </form>
   );
